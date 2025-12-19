@@ -3,31 +3,41 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ButtonGridTool – iPhone Wizard</title>
+  <title>Wizard</title>
   <style>
     :root { --pad: 12px; --gap: 10px; --b:#2b6cff; }
+    * { box-sizing: border-box; }
+    html, body { width:100%; max-width:100%; overflow-x:hidden; }
     body { font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; margin:0; background:#f5f6f8; }
-    header { background:#fff; border-bottom:1px solid #ddd; padding:10px 12px; position:sticky; top:0; z-index:10;
-      display:flex; align-items:center; justify-content:space-between; gap:10px;}
+
+    header {
+      background:#fff; border-bottom:1px solid #ddd; padding:10px 12px;
+      position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      max-width:100%;
+    }
     header h1 { font-size:16px; margin:0; }
-    .hdrBtns{ display:flex; gap:10px; align-items:center; }
-    a { text-decoration:none; }
+    .hdrBtns{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
     button, select, input[type="number"], input[type="range"] {
       font-size:16px; padding:10px 12px; border-radius:10px; border:1px solid #bbb; background:#fff;
+      max-width:100%;
     }
     button.primary{ background:var(--b); color:#fff; border-color:var(--b); }
     button.danger{ background:#ff3b30; color:#fff; border-color:#ff3b30; }
     button:disabled{ opacity:.5; }
-    main{ padding:var(--pad); max-width:980px; margin:0 auto; }
-    .card{ background:#fff; border:1px solid #ddd; border-radius:10px; padding:12px; margin:10px 0; }
-    .row{ display:flex; flex-wrap:wrap; gap:var(--gap); align-items:center; }
-    .pill{ display:inline-flex; gap:8px; align-items:center; padding:8px 10px; border:1px solid #ddd; border-radius:999px; }
-    canvas{ width:100%; height:auto; border:1px solid #ddd; border-radius:10px; background:#000; touch-action:none; }
+    a { text-decoration:none; }
+
+    main{ padding:var(--pad); max-width:980px; margin:0 auto; width:100%; }
+    .card{ background:#fff; border:1px solid #ddd; border-radius:10px; padding:12px; margin:10px 0; max-width:100%; }
+    .row{ display:flex; flex-wrap:wrap; gap:var(--gap); align-items:center; max-width:100%; }
+    .pill{ display:inline-flex; gap:8px; align-items:center; padding:8px 10px; border:1px solid #ddd; border-radius:999px; max-width:100%; }
+    canvas{ width:100%; height:auto; border:1px solid #ddd; border-radius:10px; background:#000; touch-action:none; max-width:100%; }
     .small{ color:#666; font-size:13px; line-height:1.35; }
     .split{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     @media (max-width:720px){ .split{ grid-template-columns:1fr; } }
-    .stepTitle{ font-weight:700; margin:0 0 8px 0; display:flex; align-items:center; justify-content:space-between; gap:10px;}
-    .badge{ font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #ddd; color:#333; background:#fafafa;}
+    .stepTitle{ font-weight:700; margin:0 0 8px 0; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+    .badge{ font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #ddd; color:#333; background:#fafafa; }
     .ok{ border-color:#7bd88f; background:#eaffef; }
     .warn{ border-color:#ffd37b; background:#fff5e6; }
     .muted{ color:#777; font-size:13px; }
@@ -35,19 +45,66 @@
     .hr{ height:1px; background:#eee; margin:10px 0; }
 
     /* modal */
-    .modalBackdrop{ position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:flex-end; justify-content:center; z-index:999; padding:12px; }
-    .modal{ width:min(980px, 100%); background:#fff; border-radius:16px; border:1px solid #ddd; padding:12px; max-height:82vh; overflow:auto; }
-    .modalHeader{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .modalBackdrop{
+      position:fixed; inset:0; background:rgba(0,0,0,.35);
+      display:none; align-items:flex-end; justify-content:center; z-index:999;
+      padding:12px;
+    }
+    .modal{
+      width:min(980px, 100%); background:#fff; border-radius:16px; border:1px solid #ddd;
+      padding:12px; max-height:82vh; overflow:auto;
+    }
+    .modalHeader{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
     .modalHeader h2{ margin:0; font-size:16px; }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-    .copyRow{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .copyBox{ flex:1; min-width:220px; padding:10px 12px; border:1px solid #ddd; border-radius:12px; background:#fafafa; }
+
+    .copyRow{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+  max-width:100%;
+  width:100%;
+}
+/* iOS / Flex overflow fix */
+.payCard, .pill, .row, .modal { min-width: 0; }
+
+.copyBox{
+  flex:1;
+  min-width:0;
+  width:100%;
+  padding:10px 12px;
+  border:1px solid #ddd;
+  border-radius:12px;
+  background:#fafafa;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+
+
+    .ctaGrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    @media (max-width:720px){ .ctaGrid{ grid-template-columns:1fr; } }
+
+    .payCard{
+      border:1px solid #ddd; border-radius:14px; padding:12px; background:#fff;
+      display:flex; flex-direction:column; gap:10px;
+    }
+    .payBtnBig{
+      display:flex; align-items:center; justify-content:center;
+      border:1px solid #ddd; border-radius:14px; padding:12px; background:#fafafa;
+      min-height:64px;
+    }
+    .payBtnBig:active{ transform: scale(.99); }
+    .paypalImg{
+      width:160px; max-width:80%; height:auto; display:block;
+    }
   </style>
 </head>
 <body>
 <header>
-  <h1>ButtonGridTool – iPhone Wizard</h1>
+  <h1>Wizard</h1>
   <div class="hdrBtns">
+    <button id="btnHelp" title="Hilfe">?</button>
     <button id="btnDonate" title="Spenden">☕️</button>
     <button id="btnGear" title="Einstellungen">⚙️</button>
   </div>
@@ -164,6 +221,10 @@
         <input id="idx" type="number" value="1" min="1" step="1" style="width:90px;">
       </span>
       <button id="btnPreview" class="primary" disabled>Preview</button>
+
+      <span class="pill"><b>Pairs</b>
+        <input id="pairs" type="checkbox" checked />
+      </span>
     </div>
 
     <div class="split">
@@ -172,9 +233,14 @@
         <canvas id="knobFront" width="900" height="450"></canvas>
       </div>
       <div>
-        <p class="small" id="rightPrevLabel"><b>Back</b></p>
-        <canvas id="knobRight" width="900" height="450"></canvas>
+        <p class="small"><b>Back</b></p>
+        <canvas id="knobBack" width="900" height="450"></canvas>
       </div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <p class="small" id="pairLabel"><b>Pair</b> (Front+Back)</p>
+      <canvas id="knobPair" width="1200" height="450"></canvas>
     </div>
   </div>
 
@@ -198,7 +264,7 @@
       <h2>⚙️ Einstellungen</h2>
       <button id="btnSettingsClose">Schließen</button>
     </div>
-    <p class="muted">Export/Qualität/Tight/Pad/Pairs.</p>
+    <p class="muted">Export/Qualität/Tight/Pad.</p>
     <div class="hr"></div>
 
     <div class="row">
@@ -214,16 +280,12 @@
         <span id="jpgqLabel">92</span>
       </span>
 
-      <span class="pill"><b>Pairs</b>
-        <input id="pairs" type="checkbox" checked />
+      <span class="pill"><b>Tight</b>
+        <input id="tight" type="checkbox" checked />
       </span>
     </div>
 
     <div class="row" style="margin-top:10px;">
-      <span class="pill"><b>Tight</b>
-        <input id="tight" type="checkbox" checked />
-      </span>
-
       <span class="pill"><b>Tight-Pad</b>
         <input id="tightPad" type="number" value="12" min="0" max="200" step="1" style="width:90px;">
       </span>
@@ -240,6 +302,54 @@
         <input id="gridPad" type="number" value="15" min="0" max="300" step="1" style="width:90px;">
       </span>
     </div>
+
+    <p class="small" style="margin-top:10px;">
+      <b>Format</b>: PNG = verlustfrei, JPG = kleiner.<br>
+      <b>JPG Q</b>: 50–100, höher = bessere Qualität, größere Dateien.<br>
+      <b>Tight</b>: versucht pro Zelle den Button enger zu croppen (weißes Papier weg).<br>
+      <b>Tight-Pad</b>: zusätzlicher Rand um den Button nach dem Tight-Crop.<br>
+      <b>Min-Ratio</b>: wie viel “nicht-weiß” mindestens da sein muss, sonst kein Tight-Crop (Schutz gegen Fehl-Crops).<br>
+      <b>Safety Keep</b>: verhindert, dass Tight-Crop zu aggressiv wird (sonst fallback auf ganze Zelle).<br>
+      <b>Grid-Pad</b>: schneidet in jeder Zelle innen rundherum weg (gegen Grid-Linien/Rand).
+    </p>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div id="helpBackdrop" class="modalBackdrop">
+  <div class="modal">
+    <div class="modalHeader">
+      <h2>❓ Hilfe</h2>
+      <button id="btnHelpClose">Schließen</button>
+    </div>
+
+    <div class="hr"></div>
+
+    <p class="small">
+      <b>Wofür ist das Tool?</b><br>
+      Für Fund-Dokumentation (z.B. Knöpfe): Du legst viele Objekte in ein Raster auf ein Blatt,
+      machst ein Foto von <b>Front</b> und <b>Back</b>, definierst einmal ein <b>Grid</b>,
+      und bekommst am Ende <b>jede Zelle als eigene Datei</b> (Front/Back und optional Pair).
+    </p>
+
+    <p class="small">
+      <b>Was kann es?</b><br>
+      • Manuell 4 Ecken setzen und A4-perspektivisch entzerren (OpenCV).<br>
+      • Oder ohne Entzerren weiterarbeiten (wenn Foto sauber/gleichmäßig ist).<br>
+      • Grid-Linien setzen, Zellen per Doppeltipp deaktivieren (rot).<br>
+      • Vorschau für Front/Back/Pair, dann Export als ZIP.
+    </p>
+
+    <div class="hr"></div>
+
+    <p class="small">
+      <b>So nutzt du es korrekt (Kurz-Anleitung)</b><br>
+      1) Step 1: Front laden → “Manuell 4 Ecken” → TL→TR→BR→BL tippen → Punkte feinziehen → “Entzerren” (oder “Ohne Entzerren”).<br>
+      2) Step 2: Back genauso (wichtig: damit du im Pair siehst, ob was abgeschnitten ist).<br>
+      3) Step 3: Grid setzen (Tap = Linie). Pinch/Drag = Zoom/Pan. Ansicht auf Back umschalten zum Check.<br>
+      4) Step 4: Preview: Knopf # wählen, Front/Back/Pair prüfen.<br>
+      5) Step 5: ZIP Export.
+    </p>
   </div>
 </div>
 
@@ -250,30 +360,79 @@
       <h2>☕️ Spenden</h2>
       <button id="btnDonateClose">Schließen</button>
     </div>
+
     <p class="small">
-      Wenn dir das Tool Zeit spart (oder Nerven, was ja quasi Lebenszeit ist):<br>
-      <b>PayPal</b> oder <b>Bitcoin</b> – beides geht.
+      Wenn dir das Tool Zeit (oder Nerven) spart und du mich unterstützen willst:
+      <b>PayPal</b> oder <b>Bitcoin</b> – super einfach. ❤️
     </p>
+
+    <div class="ctaGrid">
+      
+      <!-- PayPal -->
+<div class="payCard">
+  <div class="muted"><b>PayPal</b></div>
+
+  <a class="payBtnBig" href="https://paypal.me/rophko" target="_blank" rel="noopener">
+    <img class="paypalImg" alt="PayPal" src="data:image/svg+xml;utf8,
+      <svg xmlns='http://www.w3.org/2000/svg' width='420' height='140' viewBox='0 0 420 140'>
+        <rect width='420' height='140' rx='24' fill='%23f5f7ff'/>
+        <text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='44' fill='%23003087'>PayPal</text>
+        <text x='50%25' y='80%25' text-anchor='middle' font-family='Arial' font-size='20' fill='%23003087'>Jetzt spenden</text>
+      </svg>"/>
+  </a>
+
+  <div class="small muted">Tippen → PayPal öffnet direkt.</div>
+
+  <div class="row" style="margin-top:6px;">
+    <button id="btnPaypalQR" type="button">QR anzeigen</button>
+  </div>
+
+  <div id="paypalQrWrap" style="display:none; margin-top:8px;">
+    <canvas id="paypalQr" width="220" height="220"
+      style="width:220px; height:220px; background:#fff; border-radius:12px; border:1px solid #ddd;"></canvas>
+    <div class="small muted" style="margin-top:6px;">Scan → PayPal-Link öffnet.</div>
+  </div>
+</div>
+
+      <!-- BTC -->
+<div class="payCard">
+  <div class="muted"><b>Bitcoin (BTC)</b></div>
+
+  <div class="copyRow">
+    <div class="copyBox mono" id="btcText">bc1qwr08y9ngmvplpr8tuk4w34rl4pkryur8u4cf5f</div>
+    <button id="btnCopyBTC">Kopieren</button>
+    <a href="bitcoin:bc1qwr08y9ngmvplpr8tuk4w34rl4pkryur8u4cf5f"
+       class="primary"
+       style="display:inline-flex; align-items:center; justify-content:center; border-radius:10px; padding:10px 12px; border:1px solid var(--b);">
+      Jetzt zahlen
+    </a>
+  </div>
+
+  <div class="row" style="margin-top:6px;">
+    <button id="btnBtcQR" type="button">QR anzeigen</button>
+  </div>
+
+  <div id="btcQrWrap" style="display:none; margin-top:8px;">
+    <canvas id="btcQr" width="220" height="220"
+      style="width:220px; height:220px; background:#fff; border-radius:12px; border:1px solid #ddd;"></canvas>
+    <div class="small muted" style="margin-top:6px;">Scan → Wallet sollte Adresse übernehmen.</div>
+  </div>
+
+  <div class="small muted">“Jetzt zahlen” klappt in vielen Wallets direkt (sonst kopieren).</div>
+</div> <!-- BTC payCard -->
+</div> <!-- /ctaGrid -->
 
     <div class="hr"></div>
 
-    <p class="muted"><b>PayPal</b></p>
-    <div class="copyRow">
-      <div class="copyBox mono" id="paypalText">https://paypal.me/DEINPAYPALNAME</div>
-      <button id="btnCopyPayPal">Kopieren</button>
-    </div>
-
-    <div class="hr"></div>
-
-    <p class="muted"><b>Bitcoin (BTC)</b></p>
-    <div class="copyRow">
-      <div class="copyBox mono" id="btcText">bc1qwr08y9ngmvplpr8tuk4w34rl4pkryur8u4cf5f</div>
-      <button id="btnCopyBTC">Kopieren</button>
-    </div>
-
-    <p class="small muted" style="margin-top:10px;">
-      (Links/Adresse kannst du jederzeit im HTML austauschen.)
+    <p class="small">
+      <b>Ohne Kohle auch mega:</b> Wenn du mir eine Freude machen willst – abonnier meinen YouTube-Kanal! 🙂
     </p>
+    <a href="https://youtube.com/@rolandkonrad?si=4elPMGYTYBaymTmf&sub_confirmation=1"
+       target="_blank" rel="noopener"
+       class="primary"
+       style="display:inline-flex; align-items:center; justify-content:center; border-radius:12px; padding:12px 14px; border:1px solid var(--b);">
+      Klar, ich abonnier direkt!
+    </a>
   </div>
 </div>
 
@@ -283,6 +442,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
 
 <script>
 /* ----------------- Utils ----------------- */
@@ -308,7 +468,6 @@ async function copyText(t){
     await navigator.clipboard.writeText(t);
     setStatus("Kopiert.");
   }catch{
-    // fallback
     const ta=document.createElement("textarea");
     ta.value=t; document.body.appendChild(ta);
     ta.select(); document.execCommand("copy");
@@ -317,16 +476,68 @@ async function copyText(t){
   }
 }
 
-/* modals */
-$("btnGear").addEventListener("click", ()=> $("settingsBackdrop").style.display="flex");
-$("btnSettingsClose").addEventListener("click", ()=> $("settingsBackdrop").style.display="none");
-$("settingsBackdrop").addEventListener("click", (e)=>{ if(e.target=== $("settingsBackdrop")) $("settingsBackdrop").style.display="none"; });
+function localPoint(canvas, e){
+  const r=canvas.getBoundingClientRect();
+  return {
+    x:(e.clientX-r.left)*(canvas.width/r.width),
+    y:(e.clientY-r.top)*(canvas.height/r.height)
+  };
+}
 
-$("btnDonate").addEventListener("click", ()=> $("donateBackdrop").style.display="flex");
-$("btnDonateClose").addEventListener("click", ()=> $("donateBackdrop").style.display="none");
-$("donateBackdrop").addEventListener("click", (e)=>{ if(e.target=== $("donateBackdrop")) $("donateBackdrop").style.display="none"; });
+/* ----------------- Modals ----------------- */
+function openModal(backdropId){ $(backdropId).style.display="flex"; }
+function closeModal(backdropId){ $(backdropId).style.display="none"; }
 
-$("btnCopyPayPal").addEventListener("click", ()=> copyText($("paypalText").textContent.trim()));
+$("btnGear").addEventListener("click", ()=> openModal("settingsBackdrop"));
+$("btnSettingsClose").addEventListener("click", ()=> closeModal("settingsBackdrop"));
+$("settingsBackdrop").addEventListener("click", (e)=>{ if(e.target===$("settingsBackdrop")) closeModal("settingsBackdrop"); });
+
+$("btnDonate").addEventListener("click", ()=> openModal("donateBackdrop"));
+$("btnDonateClose").addEventListener("click", ()=> closeModal("donateBackdrop"));
+$("donateBackdrop").addEventListener("click", (e)=>{ if(e.target===$("donateBackdrop")) closeModal("donateBackdrop"); });
+
+$("btnHelp").addEventListener("click", ()=> openModal("helpBackdrop"));
+$("btnHelpClose").addEventListener("click", ()=> closeModal("helpBackdrop"));
+$("helpBackdrop").addEventListener("click", (e)=>{ if(e.target===$("helpBackdrop")) closeModal("helpBackdrop"); });
+function toggleWrap(id){
+  const el = $(id);
+  el.style.display = (el.style.display==="none" || !el.style.display) ? "block" : "none";
+}
+
+async function makeQR(canvasId, text){
+  const c = $(canvasId);
+  // canvas leeren
+  const ctx = c.getContext("2d");
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,c.width,c.height);
+  // QR rendern
+  await QRCode.toCanvas(c, text, {
+    width: 220,
+    margin: 2,
+    errorCorrectionLevel: "M"
+  });
+}
+
+const PAYPAL_URL = "https://paypal.me/rophko";
+const BTC_ADDR   = "bc1qwr08y9ngmvplpr8tuk4w34rl4pkryur8u4cf5f";
+// Optional: viele Wallets mögen bitcoin:-URI, manche lieber plain addr.
+// Wir machen bitcoin: (mit fallback durch Copy sowieso ok)
+const BTC_URI    = `bitcoin:${BTC_ADDR}`;
+
+$("btnPaypalQR").addEventListener("click", async ()=>{
+  toggleWrap("paypalQrWrap");
+  if($("paypalQrWrap").style.display==="block"){
+    await makeQR("paypalQr", PAYPAL_URL);
+  }
+});
+
+$("btnBtcQR").addEventListener("click", async ()=>{
+  toggleWrap("btcQrWrap");
+  if($("btcQrWrap").style.display==="block"){
+    await makeQR("btcQr", BTC_URI);
+  }
+});
+
 $("btnCopyBTC").addEventListener("click", ()=> copyText($("btcText").textContent.trim()));
 
 $("jpgq").addEventListener("input", ()=> $("jpgqLabel").textContent = $("jpgq").value);
@@ -350,67 +561,48 @@ async function loadImageFileToCanvas(file){
   }
 }
 
-function localPoint(canvas, e){
-  const r=canvas.getBoundingClientRect();
-  return {
-    x:(e.clientX-r.left)*(canvas.width/r.width),
-    y:(e.clientY-r.top)*(canvas.height/r.height)
-  };
-}
-
 /* ----------------- State ----------------- */
 const A4_W=2480, A4_H=3508;
 
 const S = {
   cvReady:false,
 
-  // original images as canvases
   frontImg:null,
   backImg:null,
 
-  // manual points in IMAGE coords
   pts: { front:[], back:[] },
 
-  // view transforms for photo canvases
   view: {
     front:{scale:1, ox:0, oy:0},
     back :{scale:1, ox:0, oy:0},
     grid :{scale:1, ox:0, oy:0}
   },
 
-  // pointer state for photos
   pointers:new Map(),
   pinch:null,
   dragPoint:null,
   pan:null,
 
-  // "working" canvases used for grid/export:
-  // either warped A4 canvases, or original raw canvases
-  work: { front:null, back:null, mode:"none" }, // mode: "warp" | "raw"
-
-  // grid stored as RELATIVE (0..1), so it applies to both front/back sizes
+  work: { front:null, back:null, mode:"none" }, // "warp" | "raw"
   xRel:[],
   yRel:[],
-
-  // disabled cell indices (1-based)
   disabledCells:new Set(),
-
-  // undo stack for grid operations
   undo:[],
 
-  // grid interaction state
   gridPointers:new Map(),
   gridPinch:null,
   gridPan:null,
   gridLastTap:{t:0, x:0, y:0},
   gridGestureLockUntil:0,
+
+  cells:[]
 };
 
 /* ----------------- OpenCV init ----------------- */
 window.Module = window.Module || {};
 Module.onRuntimeInitialized = () => {
   S.cvReady = true;
-  setStatus("bereit. OpenCV.js ist geladen.");
+  setStatus("bereit.");
 };
 
 /* ----------------- UI: file pickers ----------------- */
@@ -448,7 +640,7 @@ async function loadSide(e, which){
 
     hookPhotoCanvas("front");
     renderPhoto("front");
-    setStatus("Front geladen. Entzerren oder 'Ohne Entzerren weiter'.");
+    setStatus("Front geladen.");
   } else {
     S.backImg = imgCanvas;
     $("backState").textContent="geladen";
@@ -460,7 +652,7 @@ async function loadSide(e, which){
 
     hookPhotoCanvas("back");
     renderPhoto("back");
-    setStatus("Back geladen. Entzerren oder 'Ohne Entzerren weiter'.");
+    setStatus("Back geladen.");
   }
 }
 
@@ -478,7 +670,7 @@ function startManual(which){
   S.pts[which]=[];
   if(which==="front") $("btnFrontWarp").disabled=true;
   else $("btnBackWarp").disabled=true;
-  setStatus(`${which.toUpperCase()}: 4× tippen (TL→TR→BR→BL). Danach Punkte ziehen + Pinch/Pan möglich.`);
+  setStatus(`${which.toUpperCase()}: 4× tippen (TL→TR→BR→BL).`);
   renderPhoto(which);
 }
 
@@ -493,16 +685,11 @@ function hookPhotoCanvas(which){
 function renderPhoto(which){
   const canvas = which==="front" ? $("frontCanvas") : $("backCanvas");
   const img = which==="front" ? S.frontImg : S.backImg;
-  if(!img){
-    const ctx=canvas.getContext("2d");
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    return;
-  }
-
   const ctx=canvas.getContext("2d");
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(!img) return;
 
   const baseR = Math.min(canvas.width/img.width, canvas.height/img.height);
   const baseW = img.width*baseR, baseH = img.height*baseR;
@@ -519,20 +706,16 @@ function renderPhoto(which){
 }
 
 function imgToView(which, pImg, fit){
-  const canvas = which==="front" ? $("frontCanvas") : $("backCanvas");
-  const img = which==="front" ? S.frontImg : S.backImg;
-  const baseR = fit.baseR;
-  const baseX = fit.baseX;
-  const baseY = fit.baseY;
   const v=S.view[which];
-  const x = baseX + v.ox + (pImg.x*baseR)*v.scale;
-  const y = baseY + v.oy + (pImg.y*baseR)*v.scale;
-  return {x,y};
+  return {
+    x: fit.baseX + v.ox + (pImg.x*fit.baseR)*v.scale,
+    y: fit.baseY + v.oy + (pImg.y*fit.baseR)*v.scale
+  };
 }
-
 function viewToImg(which, pView){
   const canvas = which==="front" ? $("frontCanvas") : $("backCanvas");
   const img = which==="front" ? S.frontImg : S.backImg;
+
   const baseR = Math.min(canvas.width/img.width, canvas.height/img.height);
   const baseW = img.width*baseR, baseH=img.height*baseR;
   const baseX = (canvas.width-baseW)/2, baseY=(canvas.height-baseH)/2;
@@ -541,9 +724,10 @@ function viewToImg(which, pView){
   const x = (pView.x - (baseX+v.ox)) / v.scale;
   const y = (pView.y - (baseY+v.oy)) / v.scale;
 
-  const ix = x / baseR;
-  const iy = y / baseR;
-  return { x:clamp(ix,0,img.width-1), y:clamp(iy,0,img.height-1) };
+  return {
+    x: clamp(x / baseR, 0, img.width-1),
+    y: clamp(y / baseR, 0, img.height-1)
+  };
 }
 
 function drawPhotoOverlay(which, fit){
@@ -590,6 +774,7 @@ function drawPhotoOverlay(which, fit){
 function nearestPhotoHandle(which, pView){
   const pts=S.pts[which];
   if(!pts.length) return null;
+
   const canvas = which==="front" ? $("frontCanvas") : $("backCanvas");
   const img = which==="front" ? S.frontImg : S.backImg;
   const baseR = Math.min(canvas.width/img.width, canvas.height/img.height);
@@ -603,8 +788,7 @@ function nearestPhotoHandle(which, pView){
     const d=Math.hypot(pv.x-pView.x, pv.y-pView.y);
     if(best===null || d<best.d) best={i,d};
   }
-  if(best && best.d<55) return best.i;
-  return null;
+  return (best && best.d<55) ? best.i : null;
 }
 
 function photoPointerDown(which, canvas, e){
@@ -675,8 +859,6 @@ function photoPointerUp(which, canvas, e){
         if(which==="front") $("btnFrontWarp").disabled=false;
         else $("btnBackWarp").disabled=false;
         setStatus(`${which.toUpperCase()}: 4 Punkte gesetzt → Entzerren möglich.`);
-      }else{
-        setStatus(`${which.toUpperCase()}: Punkt ${pts.length}/4 gesetzt.`);
       }
     }
   }
@@ -700,6 +882,7 @@ function enableGridUI(){
     $("btnGridSave").disabled = false;
     $("btnGridLoad").disabled = false;
     $("btnGridApply").disabled = !readyBack;
+
     hookGridCanvas();
     renderGrid();
   }else{
@@ -722,11 +905,10 @@ function useRaw(which){
     $("backState").textContent="raw (ohne entzerren)";
     $("backState").className="badge ok";
   }
-  setStatus(`${which.toUpperCase()}: Weiter ohne Entzerren. Jetzt andere Seite ebenfalls bereit machen.`);
   enableGridUI();
+  setStatus(`${which.toUpperCase()}: weiter ohne Entzerren.`);
 }
 
-/* ----------------- Warp (OpenCV) ----------------- */
 function canvasToCvSrc(canvasEl){ return cv.imread(canvasEl); }
 
 async function warpA4(which){
@@ -776,8 +958,8 @@ async function warpA4(which){
       $("backState").className="badge ok";
     }
 
-    setStatus(`${which.toUpperCase()}: Entzerrt. Jetzt andere Seite bereit machen, dann Grid.`);
     enableGridUI();
+    setStatus(`${which.toUpperCase()}: entzerrt.`);
   }catch(err){
     console.error(err);
     alert("Entzerren fehlgeschlagen (siehe Konsole).");
@@ -785,7 +967,7 @@ async function warpA4(which){
   }
 }
 
-/* ----------------- Grid: render + interactions ----------------- */
+/* ----------------- Grid ----------------- */
 $("btnGridResetView").addEventListener("click", ()=>{ S.view.grid={scale:1,ox:0,oy:0}; renderGrid(); });
 
 $("btnGridClear").addEventListener("click", ()=>{
@@ -838,12 +1020,10 @@ $("gridLoad").addEventListener("change", async (e)=>{
 $("gridWhich").addEventListener("change", ()=> renderGrid());
 
 $("btnGridApply").addEventListener("click", ()=>{
-  if(!S.work.front) return alert("Front fehlt.");
-  if(!S.work.back)  return alert("Back fehlt.");
-
+  if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein.");
   buildCells();
-  const ok = S.cells.length>0;
 
+  const ok = S.cells.length>0;
   $("btnPreview").disabled = !ok;
   $("btnExport").disabled  = !ok;
 
@@ -958,21 +1138,18 @@ function renderGrid(){
   ctx.restore();
 }
 
-/* --- grid interactions: pinch/pan never sets lines --- */
+/* grid interactions: pinch/pan never sets lines */
 function gridPointerDown(canvas, e){
   if(!S.work.front) return;
   canvas.setPointerCapture(e.pointerId);
   const p=localPoint(canvas,e);
   S.gridPointers.set(e.pointerId, p);
 
-  // if multi-touch begins, lock taps briefly
   if(S.gridPointers.size>=2){
     S.gridGestureLockUntil = Date.now() + 350;
-    S.gridPinchStart();
+    gridPinchStart();
     return;
   }
-
-  // single pointer: start pan candidate (but tap allowed if not moved)
   S.gridPan={x:p.x, y:p.y, moved:false};
 }
 
@@ -983,10 +1160,9 @@ function gridPointerMove(canvas, e){
 
   if(S.gridPointers.size>=2){
     S.gridGestureLockUntil = Date.now() + 350;
-    // pinch zoom
     const a=[...S.gridPointers.values()];
     const d=Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y);
-    if(!S.gridPinch) S.gridPinchStart();
+    if(!S.gridPinch) gridPinchStart();
     const ratio=d/(S.gridPinch.startDist||1);
     S.view.grid.scale = clampScale(S.gridPinch.startScale*ratio);
     renderGrid();
@@ -1007,19 +1183,13 @@ function gridPointerUp(canvas, e){
   const p=localPoint(canvas,e);
   S.gridPointers.delete(e.pointerId);
 
-  if(S.gridPointers.size<2){
-    S.gridPinch=null;
-  }
+  if(S.gridPointers.size<2) S.gridPinch=null;
 
-  // if we were panning or in gesture lock window -> do nothing
   if(S.gridPan && S.gridPan.moved){ S.gridPan=null; return; }
   S.gridPan=null;
 
-  if(Date.now() < S.gridGestureLockUntil){
-    return; // swallow tap after pinch/pan
-  }
+  if(Date.now() < S.gridGestureLockUntil) return;
 
-  // double tap cell toggle
   const now=Date.now();
   const dt = now - S.gridLastTap.t;
   const dd = Math.hypot(p.x - S.gridLastTap.x, p.y - S.gridLastTap.y);
@@ -1031,7 +1201,6 @@ function gridPointerUp(canvas, e){
       const wasDisabled = S.disabledCells.has(idx);
       if(wasDisabled) S.disabledCells.delete(idx);
       else S.disabledCells.add(idx);
-
       S.undo.push({type:"toggleCell", idx, toDisabled: !wasDisabled});
       renderGrid();
       setStatus(`Zelle ${idx} ${S.disabledCells.has(idx) ? "deaktiviert" : "aktiviert"}.`);
@@ -1039,15 +1208,14 @@ function gridPointerUp(canvas, e){
     return;
   }
 
-  // single tap add line
   addLineFromTap(p.x,p.y);
 }
 
-S.gridPinchStart = function(){
+function gridPinchStart(){
   const a=[...S.gridPointers.values()];
   const d=Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y);
   S.gridPinch={startDist:d, startScale:S.view.grid.scale};
-};
+}
 
 function addLineFromTap(x,y){
   const which = $("gridWhich").value;
@@ -1062,16 +1230,14 @@ function addLineFromTap(x,y){
     const r = clamp(ix/iw, 0, 1);
     const rr = Math.min(0.999999, Math.max(0.000001, r));
     if(!S.xRel.some(v=>Math.abs(v-rr)<1e-9)){
-      S.xRel.push(rr);
-      S.xRel.sort((a,b)=>a-b);
+      S.xRel.push(rr); S.xRel.sort((a,b)=>a-b);
       S.undo.push({type:"addLine", axis:"x", value:rr});
     }
   }else{
     const r = clamp(iy/ih, 0, 1);
     const rr = Math.min(0.999999, Math.max(0.000001, r));
     if(!S.yRel.some(v=>Math.abs(v-rr)<1e-9)){
-      S.yRel.push(rr);
-      S.yRel.sort((a,b)=>a-b);
+      S.yRel.push(rr); S.yRel.sort((a,b)=>a-b);
       S.undo.push({type:"addLine", axis:"y", value:rr});
     }
   }
@@ -1099,8 +1265,6 @@ function hitTestCell(viewX, viewY){
 }
 
 /* ----------------- Cells + preview + export ----------------- */
-S.cells=[];
-
 function buildCells(){
   const pad = parseInt($("gridPad").value||"0",10);
   const workF = S.work.front;
@@ -1117,9 +1281,7 @@ function buildCells(){
       let y0=ys[r]+pad, y1=ys[r+1]-pad;
       x0=clamp(x0,0,workF.width); x1=clamp(x1,0,workF.width);
       y0=clamp(y0,0,workF.height); y1=clamp(y1,0,workF.height);
-      if(x1-x0>5 && y1-y0>5){
-        cells.push({x0,y0,x1,y1, idx});
-      }
+      if(x1-x0>5 && y1-y0>5) cells.push({x0,y0,x1,y1, idx});
       idx++;
     }
   }
@@ -1194,10 +1356,6 @@ function buildPairCanvas(front, back){
   return pair;
 }
 
-$("pairs").addEventListener("change", ()=>{
-  $("rightPrevLabel").innerHTML = $("pairs").checked ? "<b>Pair</b> (Front+Back)" : "<b>Back</b>";
-});
-
 $("btnPreview").addEventListener("click", ()=>{
   if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
   buildCells();
@@ -1205,24 +1363,19 @@ $("btnPreview").addEventListener("click", ()=>{
 
   const idx = clamp(parseInt($("idx").value||"1",10), 1, S.cells.length);
   $("idx").value = idx;
-
   const cell = S.cells[idx-1];
-
-  if(S.disabledCells.has(cell.idx)){
-    setStatus(`Zelle ${cell.idx} ist deaktiviert (rot) – wird nicht exportiert.`);
-  }
 
   const f = tightOrFull(cropCanvas(S.work.front, cell));
   const b = tightOrFull(cropCanvas(S.work.back, cell));
+
   drawFitTo($("knobFront"), f);
+  drawFitTo($("knobBack"), b);
 
   const doPairs = $("pairs").checked;
+  $("pairLabel").style.display = doPairs ? "block" : "none";
+  $("knobPair").style.display  = doPairs ? "block" : "none";
   if(doPairs){
-    $("rightPrevLabel").innerHTML = "<b>Pair</b> (Front+Back)";
-    drawFitTo($("knobRight"), buildPairCanvas(f,b));
-  }else{
-    $("rightPrevLabel").innerHTML = "<b>Back</b>";
-    drawFitTo($("knobRight"), b);
+    drawFitTo($("knobPair"), buildPairCanvas(f,b));
   }
 });
 
@@ -1274,8 +1427,6 @@ $("btnExport").addEventListener("click", async ()=>{
   setStatus(`Fertig. Exportiert: ${exported} Zellen (deaktiviert: ${S.disabledCells.size}).`);
 });
 
-/* start grid hooks */
-hookGridCanvas();
 </script>
 </body>
 </html>
