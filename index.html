@@ -19,7 +19,7 @@
     .card { background:#fff; border:1px solid #ddd; border-radius:10px; padding:12px; margin:10px 0; }
     .row { display:flex; flex-wrap:wrap; gap: var(--gap); align-items:center; }
     .pill { display:inline-flex; gap:8px; align-items:center; padding:8px 10px; border:1px solid #ddd; border-radius:999px; }
-    canvas { width:100%; height:auto; border:1px solid #ddd; border-radius:10px; background:#000; touch-action: none; }
+    canvas { width:100%; height:auto; border:1px solid #ddd; border-radius:10px; background:#000; touch-action:none; }
     .small { color:#666; font-size:13px; line-height:1.35; }
     .split { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
     @media (max-width:720px){ .split { grid-template-columns: 1fr; } }
@@ -28,21 +28,17 @@
     .ok { border-color:#7bd88f; background:#eaffef; }
     .warn { border-color:#ffd37b; background:#fff5e6; }
 
-    /* Settings modal */
-    .modalBackdrop {
-      position:fixed; inset:0; background:rgba(0,0,0,.35);
-      display:none; align-items:flex-end; justify-content:center; z-index:999;
-      padding:12px;
-    }
-    .modal {
-      width:min(980px, 100%);
-      background:#fff; border-radius:16px; border:1px solid #ddd;
-      padding:12px; max-height:80vh; overflow:auto;
-    }
+    .modalBackdrop { position:fixed; inset:0; background:rgba(0,0,0,.35);
+      display:none; align-items:flex-end; justify-content:center; z-index:999; padding:12px;}
+    .modal { width:min(980px, 100%); background:#fff; border-radius:16px; border:1px solid #ddd;
+      padding:12px; max-height:80vh; overflow:auto;}
     .modalHeader { display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .modalHeader h2 { margin:0; font-size:16px; }
     .hr { height:1px; background:#eee; margin:10px 0; }
     .muted { color:#777; font-size:13px; }
+
+    /* tiny tool buttons */
+    .toolbtn { padding:10px 12px; }
   </style>
 </head>
 <body>
@@ -62,20 +58,26 @@
       <span id="frontState" class="badge warn">nicht geladen</span>
     </div>
 
-    <!-- hidden inputs: one forces camera, one opens picker -->
     <input id="frontCam" type="file" accept="image/*" capture="environment" hidden />
     <input id="frontPick" type="file" accept="image/*" hidden />
 
     <div class="row">
       <button id="btnFrontCam" class="primary">📷 Foto machen</button>
       <button id="btnFrontPick">📁 Datei benutzen</button>
+
       <button id="btnFrontManual" disabled>Manuell 4 Ecken</button>
       <button id="btnFrontWarp" class="primary" disabled>Entzerren (A4)</button>
+
+      <button id="btnFrontZoomIn" class="toolbtn" disabled>＋</button>
+      <button id="btnFrontZoomOut" class="toolbtn" disabled>－</button>
+      <button id="btnFrontResetView" class="toolbtn" disabled>Reset View</button>
     </div>
 
     <canvas id="frontCanvas" width="1200" height="900"></canvas>
     <p class="small">
-      Manual: 4 Ecken antippen (TL → TR → BR → BL). Danach kannst du Punkte ziehen. „Entzerren“ rechnet erst dann (stabil am iPhone).
+      <b>Manuell 4 Ecken:</b> Tippe 4× ins Bild: <b>TL → TR → BR → BL</b>. Danach Punkte ziehen. <br>
+      <b>Zoomen/Pan:</b> Pinch-Zoom + ziehen (oder +/− Buttons). Punkte bleiben fix (Bildkoordinaten).<br>
+      Dann <b>Entzerren</b> drücken.
     </p>
   </div>
 
@@ -92,8 +94,13 @@
     <div class="row">
       <button id="btnBackCam" class="primary" disabled>📷 Foto machen</button>
       <button id="btnBackPick" disabled>📁 Datei benutzen</button>
+
       <button id="btnBackManual" disabled>Manuell 4 Ecken</button>
       <button id="btnBackWarp" class="primary" disabled>Entzerren (A4)</button>
+
+      <button id="btnBackZoomIn" class="toolbtn" disabled>＋</button>
+      <button id="btnBackZoomOut" class="toolbtn" disabled>－</button>
+      <button id="btnBackResetView" class="toolbtn" disabled>Reset View</button>
     </div>
 
     <canvas id="backCanvas" width="1200" height="900"></canvas>
@@ -122,8 +129,7 @@
 
     <canvas id="gridCanvas" width="1200" height="900"></canvas>
     <p class="small">
-      Tap = Linie setzen. Long-Press nahe Linie = löschen. Nummern sind groß/blau nur im Preview.<br>
-      Grid-Pad (⚙️) schneidet innen je Zelle etwas weg (gegen Rand/Line).
+      Tap = Linie setzen. Long-Press nahe Linie = löschen. Nummern sind groß/blau nur im Preview.
     </p>
   </div>
 
@@ -162,7 +168,7 @@
     <div class="row">
       <button id="btnExport" class="primary" disabled>ZIP Export</button>
     </div>
-    <p id="status" class="small">Status: bereit. (OpenCV.js lädt…)</p>
+    <p id="status" class="small">Status: OpenCV.js lädt…</p>
   </div>
 
 </main>
@@ -174,7 +180,7 @@
       <h2>⚙️ Einstellungen</h2>
       <button id="btnSettingsClose">Schließen</button>
     </div>
-    <p class="muted">Hier ist alles, was du nicht dauernd sehen willst. 😉</p>
+    <p class="muted">Hier ist alles, was du nicht dauernd sehen willst.</p>
     <div class="hr"></div>
 
     <div class="row">
@@ -216,15 +222,13 @@
         <input id="gridPad" type="number" value="15" min="0" max="300" step="1" style="width:90px;">
       </span>
     </div>
-
-    <p class="small" style="margin-top:10px;">
-      Flow: Front → Back → Grid → Preview → Export. <br>
-      Tipp: iPhone „1x“ und so parallel wie möglich zum Blatt.
-    </p>
   </div>
 </div>
 
-<!-- libs -->
+<!-- hidden warp canvases (iOS-safe target for cv.imshow) -->
+<canvas id="frontWarpCanvas" width="2480" height="3508" hidden></canvas>
+<canvas id="backWarpCanvas" width="2480" height="3508" hidden></canvas>
+
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
@@ -233,21 +237,7 @@
 const $ = (id)=>document.getElementById(id);
 const statusEl = $("status");
 function setStatus(s){ statusEl.textContent = "Status: " + s; }
-
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-
-function drawFit(canvas, imgBitmap){
-  const ctx = canvas.getContext("2d");
-  const cw=canvas.width, ch=canvas.height;
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.clearRect(0,0,cw,ch);
-  const r = Math.min(cw/imgBitmap.width, ch/imgBitmap.height);
-  const w = imgBitmap.width*r, h = imgBitmap.height*r;
-  const x = (cw-w)/2, y=(ch-h)/2;
-  ctx.drawImage(imgBitmap, x,y,w,h);
-  return {x,y,w,h,r};
-}
-
 function downloadBlob(blob, filename){
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -258,54 +248,53 @@ function downloadBlob(blob, filename){
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
 }
 
-/* ----------------- Settings modal ----------------- */
-$("btnGear").addEventListener("click", ()=>{
-  $("settingsBackdrop").style.display = "flex";
-});
-$("btnSettingsClose").addEventListener("click", ()=>{
-  $("settingsBackdrop").style.display = "none";
-});
-$("settingsBackdrop").addEventListener("click", (e)=>{
-  if(e.target === $("settingsBackdrop")) $("settingsBackdrop").style.display = "none";
-});
+/* Settings modal */
+$("btnGear").addEventListener("click", ()=> $("settingsBackdrop").style.display="flex");
+$("btnSettingsClose").addEventListener("click", ()=> $("settingsBackdrop").style.display="none");
+$("settingsBackdrop").addEventListener("click", (e)=>{ if(e.target=== $("settingsBackdrop")) $("settingsBackdrop").style.display="none"; });
 $("jpgq").addEventListener("input", ()=> $("jpgqLabel").textContent = $("jpgq").value);
 
 /* ----------------- State ----------------- */
+const A4_W = 2480, A4_H = 3508;
+
 const S = {
   cvReady: false,
 
   frontBmp: null,
   backBmp: null,
 
-  frontCorners: [], // view coords (canvas space)
-  backCorners: [],
+  // points stored in IMAGE coordinates (bmp pixel coords) => zoom/pan safe
+  frontPtsImg: [], // array of {x,y} len 0..4
+  backPtsImg: [],
 
-  frontWarp: null,  // OffscreenCanvas A4
+  // view transform per canvas
+  view: {
+    front: {scale: 1, ox: 0, oy: 0},
+    back:  {scale: 1, ox: 0, oy: 0}
+  },
+
+  // active interactions
+  drag: null, // {which, idx} or null
+  pointers: new Map(), // pointerId -> {x,y}
+  pinch: null, // {which, startDist, startScale, midX, midY}
+
+  // warp canvases (HTMLCanvasElement, iOS safe)
+  frontWarp: null,
   backWarp: null,
 
-  dragging: null,   // {which, idx} or null
-
-  xLines: [],
-  yLines: [],
-  cells: [],
+  xLines: [], yLines: [], cells: []
 };
 
-const A4_W = 2480;
-const A4_H = 3508;
+/* ----------------- OpenCV ready (reliable) ----------------- */
+window.Module = window.Module || {};
+Module.onRuntimeInitialized = () => {
+  S.cvReady = true;
+  setStatus("bereit. OpenCV.js ist geladen.");
+};
 
-/* ----------------- OpenCV ready ----------------- */
-let cvWaitTimer = setInterval(()=>{
-  if(window.cv && cv.Mat){
-    clearInterval(cvWaitTimer);
-    S.cvReady = true;
-    setStatus("bereit. OpenCV.js ist geladen.");
-  }
-}, 200);
-
-/* ----------------- File pickers (camera vs file) ----------------- */
+/* ----------------- File pickers ----------------- */
 $("btnFrontCam").addEventListener("click", ()=> $("frontCam").click());
 $("btnFrontPick").addEventListener("click", ()=> $("frontPick").click());
-
 $("btnBackCam").addEventListener("click", ()=> $("backCam").click());
 $("btnBackPick").addEventListener("click", ()=> $("backPick").click());
 
@@ -317,244 +306,438 @@ $("backPick").addEventListener("change", (e)=> loadImageFromInput(e, "back"));
 async function loadImageFromInput(e, which){
   const f = e.target.files?.[0];
   if(!f) return;
-
   const bmp = await createImageBitmap(f);
+
   if(which==="front"){
     S.frontBmp = bmp;
+    S.frontPtsImg = [];
+    resetView("front");
     $("frontState").textContent = "geladen";
     $("frontState").className = "badge ok";
-    renderFront();
-    $("btnFrontManual").disabled = false;
-    $("btnFrontWarp").disabled = true;
-    setStatus("Front geladen. Jetzt Manuell 4 Ecken und dann Entzerren.");
-    // enable back step buttons now
+    enableFrontTools(true);
+    renderPhoto("front");
+    setStatus("Front geladen. Tippe 4 Ecken (TL→TR→BR→BL), dann Entzerren.");
+    // enable back pickers
     $("btnBackCam").disabled = false;
     $("btnBackPick").disabled = false;
-  }else{
+  } else {
     S.backBmp = bmp;
+    S.backPtsImg = [];
+    resetView("back");
     $("backState").textContent = "geladen";
     $("backState").className = "badge ok";
-    renderBack();
-    $("btnBackManual").disabled = false;
-    $("btnBackWarp").disabled = true;
-    setStatus("Back geladen. Jetzt Manuell 4 Ecken und dann Entzerren.");
+    enableBackTools(true);
+    renderPhoto("back");
+    setStatus("Back geladen. Tippe 4 Ecken, dann Entzerren.");
   }
 }
 
-/* ----------------- Manual corners UI ----------------- */
-$("btnFrontManual").addEventListener("click", ()=> startManual("front"));
-$("btnBackManual").addEventListener("click", ()=> startManual("back"));
-$("btnFrontWarp").addEventListener("click", ()=> warpA4("front"));
-$("btnBackWarp").addEventListener("click", ()=> warpA4("back"));
-
-function renderFront(){
-  if(!S.frontBmp) return;
-  const c=$("frontCanvas");
-  drawFit(c, S.frontBmp);
-  drawCorners("front");
+function enableFrontTools(on){
+  $("btnFrontManual").disabled = !on;
+  $("btnFrontWarp").disabled = true;
+  $("btnFrontZoomIn").disabled = !on;
+  $("btnFrontZoomOut").disabled = !on;
+  $("btnFrontResetView").disabled = !on;
 }
-function renderBack(){
-  if(!S.backBmp) return;
-  const c=$("backCanvas");
-  drawFit(c, S.backBmp);
-  drawCorners("back");
+function enableBackTools(on){
+  $("btnBackManual").disabled = !on;
+  $("btnBackWarp").disabled = true;
+  $("btnBackZoomIn").disabled = !on;
+  $("btnBackZoomOut").disabled = !on;
+  $("btnBackResetView").disabled = !on;
 }
 
-function startManual(which){
+/* ----------------- View transform + drawing ----------------- */
+function resetView(which){
+  const v = S.view[which];
+  v.scale = 1;
+  v.ox = 0;
+  v.oy = 0;
+}
+
+function renderPhoto(which){
   const canvas = which==="front" ? $("frontCanvas") : $("backCanvas");
   const bmp = which==="front" ? S.frontBmp : S.backBmp;
   if(!bmp) return;
 
-  const fit = drawFit(canvas, bmp);
-  const pad = 18;
-  const corners = [
-    {x:fit.x+pad,       y:fit.y+pad},         // TL
-    {x:fit.x+fit.w-pad, y:fit.y+pad},         // TR
-    {x:fit.x+fit.w-pad, y:fit.y+fit.h-pad},   // BR
-    {x:fit.x+pad,       y:fit.y+fit.h-pad},   // BL
-  ];
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  if(which==="front") S.frontCorners = corners;
-  else S.backCorners = corners;
+  // base "contain" fit
+  const baseR = Math.min(canvas.width/bmp.width, canvas.height/bmp.height);
+  const baseW = bmp.width*baseR, baseH = bmp.height*baseR;
+  const baseX = (canvas.width-baseW)/2, baseY = (canvas.height-baseH)/2;
 
-  hookCornerEvents(canvas, which);
-  drawFit(canvas, bmp);
-  drawCorners(which);
+  // apply user view (pan/zoom around canvas center-ish)
+  const v = S.view[which];
+  ctx.save();
+  ctx.translate(baseX + v.ox, baseY + v.oy);
+  ctx.scale(v.scale, v.scale);
+  ctx.drawImage(bmp, 0, 0, baseW, baseH);
+  ctx.restore();
 
-  if(which==="front") $("btnFrontWarp").disabled = false;
-  else $("btnBackWarp").disabled = false;
-
-  setStatus(`${which.toUpperCase()}: Ecken setzen/ziehen. Dann Entzerren.`);
+  // overlay points (convert img->view)
+  drawPointsOverlay(which, {baseR, baseX, baseY, baseW, baseH});
 }
 
-function drawCorners(which){
+function imgToView(which, imgPt, fit){
+  // image px -> base fit coords -> then view transform
+  const v = S.view[which];
+  const x0 = fit.baseX + v.ox;
+  const y0 = fit.baseY + v.oy;
+  const sx = v.scale;
+  // first map image->base-fit
+  const px = imgPt.x * fit.baseR;
+  const py = imgPt.y * fit.baseR;
+  // then apply view
+  return { x: x0 + px*sx, y: y0 + py*sx };
+}
+
+function viewToImg(which, viewPt){
+  // inverse mapping from current render
   const canvas = which==="front" ? $("frontCanvas") : $("backCanvas");
   const bmp = which==="front" ? S.frontBmp : S.backBmp;
-  const pts = which==="front" ? S.frontCorners : S.backCorners;
-  if(!bmp || !pts || pts.length!==4) return;
+  if(!bmp) return null;
 
-  const ctx=canvas.getContext("2d");
+  const baseR = Math.min(canvas.width/bmp.width, canvas.height/bmp.height);
+  const baseW = bmp.width*baseR, baseH = bmp.height*baseR;
+  const baseX = (canvas.width-baseW)/2, baseY = (canvas.height-baseH)/2;
+
+  const v = S.view[which];
+  const x0 = baseX + v.ox;
+  const y0 = baseY + v.oy;
+
+  const sx = v.scale;
+  const px = (viewPt.x - x0) / sx;
+  const py = (viewPt.y - y0) / sx;
+
+  const ix = px / baseR;
+  const iy = py / baseR;
+
+  return { x: clamp(ix, 0, bmp.width-1), y: clamp(iy, 0, bmp.height-1) };
+}
+
+function drawPointsOverlay(which, fit){
+  const canvas = which==="front" ? $("frontCanvas") : $("backCanvas");
+  const ctx = canvas.getContext("2d");
+  const pts = which==="front" ? S.frontPtsImg : S.backPtsImg;
+
+  // handles: big + with halo so you feel it under the finger
+  const R = 16;
   ctx.save();
-  ctx.lineWidth=3;
-  ctx.strokeStyle="lime";
-  ctx.fillStyle="lime";
-  ctx.font="22px -apple-system";
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for(let i=1;i<4;i++) ctx.lineTo(pts[i].x, pts[i].y);
-  ctx.closePath(); ctx.stroke();
-  pts.forEach((p,i)=>{
-    ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fill();
-    ctx.fillText(String(i+1), p.x+14, p.y-14);
-  });
+  ctx.lineWidth = 4;
+
+  // polygon if 4 points
+  if(pts.length===4){
+    ctx.strokeStyle = "rgba(0,255,120,.95)";
+    ctx.beginPath();
+    const p0 = imgToView(which, pts[0], fit);
+    ctx.moveTo(p0.x,p0.y);
+    for(let i=1;i<4;i++){
+      const pi = imgToView(which, pts[i], fit);
+      ctx.lineTo(pi.x,pi.y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  for(let i=0;i<pts.length;i++){
+    const p = imgToView(which, pts[i], fit);
+
+    // halo
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.beginPath(); ctx.arc(p.x, p.y, R+10, 0, Math.PI*2); ctx.fill();
+
+    // handle
+    ctx.fillStyle = "rgba(0,255,120,.95)";
+    ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI*2); ctx.fill();
+
+    // label
+    ctx.fillStyle="#000";
+    ctx.font="20px -apple-system";
+    ctx.fillText(String(i+1), p.x+R+8, p.y-8);
+  }
+
+  // next-step hint
+  if(pts.length < 4){
+    ctx.fillStyle="rgba(255,255,255,.95)";
+    ctx.font="22px -apple-system";
+    ctx.fillText(`Tippe Ecke ${pts.length+1}/4`, 16, 34);
+  }
   ctx.restore();
 }
 
-function hookCornerEvents(canvas, which){
-  canvas.onpointerdown = (e)=>{
-    const pts = which==="front" ? S.frontCorners : S.backCorners;
-    if(!pts || pts.length!==4) return;
-    canvas.setPointerCapture(e.pointerId);
+/* ----------------- Manual mode: tap-to-set + drag + pinch/pan ----------------- */
+$("btnFrontManual").addEventListener("click", ()=> startManual("front"));
+$("btnBackManual").addEventListener("click", ()=> startManual("back"));
 
-    const p = toLocal(canvas, e);
-    // pick nearest corner
-    let best=-1, bd=1e9;
-    for(let i=0;i<4;i++){
-      const d = Math.hypot(pts[i].x-p.x, pts[i].y-p.y);
-      if(d<bd){ bd=d; best=i; }
-    }
-    if(bd < 45){
-      S.dragging = {which, idx:best};
-    } else {
-      // tap-to-set in order if user wants: find first corner that is "unset"
-      // (we treat all set by default; so this is just convenience)
-    }
-  };
-
-  canvas.onpointermove = (e)=>{
-    if(!S.dragging || S.dragging.which!==which) return;
-    const pts = which==="front" ? S.frontCorners : S.backCorners;
-    const bmp = which==="front" ? S.frontBmp : S.backBmp;
-    if(!pts || !bmp) return;
-
-    const p = toLocal(canvas, e);
-    pts[S.dragging.idx].x = clamp(p.x, 0, canvas.width);
-    pts[S.dragging.idx].y = clamp(p.y, 0, canvas.height);
-
-    // redraw base image + corners
-    drawFit(canvas, bmp);
-    drawCorners(which);
-  };
-
-  canvas.onpointerup = (e)=>{
-    S.dragging = null;
-  };
-}
-
-function toLocal(canvas, e){
-  const r = canvas.getBoundingClientRect();
-  const x = (e.clientX - r.left) * (canvas.width / r.width);
-  const y = (e.clientY - r.top)  * (canvas.height/ r.height);
-  return {x,y};
-}
-
-/* ----------------- Warp (OpenCV.js) ----------------- */
-async function warpA4(which){
-  if(!S.cvReady) return alert("OpenCV.js lädt noch. 1–2 Sekunden.");
+function startManual(which){
   const bmp = which==="front" ? S.frontBmp : S.backBmp;
+  if(!bmp) return;
+  // clear points => user sets fresh (no pre-rectangle)
+  if(which==="front") S.frontPtsImg = [];
+  else S.backPtsImg = [];
+
+  // enable warp only after 4 points
+  if(which==="front") $("btnFrontWarp").disabled = true;
+  else $("btnBackWarp").disabled = true;
+
+  hookCanvasInteractions(which);
+  renderPhoto(which);
+  setStatus(`${which.toUpperCase()}: Tippe 4 Ecken (TL→TR→BR→BL). Danach ziehen + Entzerren.`);
+}
+
+function hookCanvasInteractions(which){
   const canvas = which==="front" ? $("frontCanvas") : $("backCanvas");
-  const ptsView = which==="front" ? S.frontCorners : S.backCorners;
-  if(!bmp || !ptsView || ptsView.length!==4) return alert("Bitte zuerst Manuell 4 Ecken.");
+  canvas.onpointerdown = (e)=> onPointerDown(which, canvas, e);
+  canvas.onpointermove = (e)=> onPointerMove(which, canvas, e);
+  canvas.onpointerup   = (e)=> onPointerUp(which, canvas, e);
+  canvas.onpointercancel = (e)=> onPointerUp(which, canvas, e);
+}
 
-  setStatus(`${which.toUpperCase()}: Entzerren läuft…`);
+function localPoint(canvas, e){
+  const r = canvas.getBoundingClientRect();
+  return {
+    x:(e.clientX-r.left)*(canvas.width/r.width),
+    y:(e.clientY-r.top)*(canvas.height/r.height)
+  };
+}
 
-  // map view points -> image pixels
-  const fit = drawFit(canvas, bmp);
-  const srcPts = ptsView.map(p=>{
-    const vx = clamp(p.x, fit.x, fit.x+fit.w);
-    const vy = clamp(p.y, fit.y, fit.y+fit.h);
-    return { x: (vx - fit.x)/fit.r, y: (vy - fit.y)/fit.r };
-  });
+function nearestHandle(which, viewPt){
+  const canvas = which==="front" ? $("frontCanvas") : $("backCanvas");
+  const bmp = which==="front" ? S.frontBmp : S.backBmp;
+  const pts = which==="front" ? S.frontPtsImg : S.backPtsImg;
+  if(!bmp || pts.length===0) return null;
 
-  // build OpenCV mats
-  const src = cv.imread(bitmapToCanvas(bmp));
-  const dsize = new cv.Size(A4_W, A4_H);
+  // compute fit used in render
+  const baseR = Math.min(canvas.width/bmp.width, canvas.height/bmp.height);
+  const baseW = bmp.width*baseR, baseH = bmp.height*baseR;
+  const baseX = (canvas.width-baseW)/2, baseY = (canvas.height-baseH)/2;
+  const fit = {baseR, baseX, baseY, baseW, baseH};
 
-  const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-    srcPts[0].x, srcPts[0].y,
-    srcPts[1].x, srcPts[1].y,
-    srcPts[2].x, srcPts[2].y,
-    srcPts[3].x, srcPts[3].y
-  ]);
-  const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-    0, 0,
-    A4_W, 0,
-    A4_W, A4_H,
-    0, A4_H
-  ]);
+  let best=null;
+  for(let i=0;i<pts.length;i++){
+    const p = imgToView(which, pts[i], fit);
+    const d = Math.hypot(p.x-viewPt.x, p.y-viewPt.y);
+    if(best===null || d<best.d) best={i,d};
+  }
+  if(best && best.d < 55) return best.i; // generous for finger
+  return null;
+}
 
-  const M = cv.getPerspectiveTransform(srcTri, dstTri);
-  const dst = new cv.Mat();
-  cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255,255,255,255));
+function onPointerDown(which, canvas, e){
+  canvas.setPointerCapture(e.pointerId);
+  const p = localPoint(canvas, e);
+  S.pointers.set(e.pointerId, p);
 
-  // convert to OffscreenCanvas
-  const out = new OffscreenCanvas(A4_W, A4_H);
-  cv.imshow(out, dst);
+  const pts = which==="front" ? S.frontPtsImg : S.backPtsImg;
 
-  // cleanup
-  src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
-
-  if(which==="front"){
-    S.frontWarp = out;
-    $("gridState").textContent = "Front ok → Grid möglich";
-    $("gridState").className = "badge ok";
-    // enable grid tools
-    $("btnGridClear").disabled = false;
-    $("btnGridSave").disabled = false;
-    $("btnGridLoad").disabled = false;
-    $("btnGridApply").disabled = false;
-    renderGrid();
-    setStatus("Front entzerrt. Jetzt Back entzerren oder direkt Grid setzen.");
-  } else {
-    S.backWarp = out;
-    $("backState").textContent = "entzerrt";
-    $("backState").className = "badge ok";
-    setStatus("Back entzerrt. Jetzt Grid/Preview/Export.");
+  // 2-finger pinch starts when second pointer arrives
+  if(S.pointers.size === 2){
+    const arr = [...S.pointers.values()];
+    const d = Math.hypot(arr[0].x-arr[1].x, arr[0].y-arr[1].y);
+    const midX = (arr[0].x+arr[1].x)/2;
+    const midY = (arr[0].y+arr[1].y)/2;
+    S.pinch = {which, startDist:d, startScale:S.view[which].scale, midX, midY};
+    S.drag = null;
+    return;
   }
 
-  // mark state badges
-  if(which==="front"){
-    $("frontState").textContent = "entzerrt";
-    $("frontState").className = "badge ok";
+  // if 1 pointer: check handle drag
+  const hit = nearestHandle(which, p);
+  if(hit !== null){
+    S.drag = {which, idx: hit};
+    return;
+  }
+
+  // otherwise: if points < 4 => set next point on tap
+  // (we don't set immediately on down; we set on up if no pan happened)
+  S.drag = {which, idx: -1, maybeTap: true, start:p};
+}
+
+function onPointerMove(which, canvas, e){
+  if(!S.pointers.has(e.pointerId)) return;
+  const p = localPoint(canvas, e);
+  S.pointers.set(e.pointerId, p);
+
+  // pinch zoom
+  if(S.pointers.size === 2 && S.pinch && S.pinch.which===which){
+    const arr = [...S.pointers.values()];
+    const d = Math.hypot(arr[0].x-arr[1].x, arr[0].y-arr[1].y);
+    const ratio = d / (S.pinch.startDist || 1);
+    const newScale = clamp(S.pinch.startScale * ratio, 1, 6);
+
+    // keep zoom centered roughly
+    S.view[which].scale = newScale;
+    renderPhoto(which);
+    return;
+  }
+
+  // drag point
+  if(S.drag && S.drag.which===which && S.drag.idx >= 0){
+    const pts = which==="front" ? S.frontPtsImg : S.backPtsImg;
+    const imgPt = viewToImg(which, p);
+    pts[S.drag.idx] = imgPt;
+    renderPhoto(which);
+    return;
+  }
+
+  // one-finger pan if user moved a bit (and not dragging a handle)
+  if(S.drag && S.drag.which===which && S.drag.idx === -1){
+    const dx = p.x - S.drag.start.x;
+    const dy = p.y - S.drag.start.y;
+    if(Math.hypot(dx,dy) > 8){
+      S.drag.maybeTap = false; // it's a pan
+      S.view[which].ox += dx;
+      S.view[which].oy += dy;
+      S.drag.start = p;
+      renderPhoto(which);
+    }
   }
 }
 
-/* helper: convert bitmap to canvas for cv.imread */
+function onPointerUp(which, canvas, e){
+  const p = localPoint(canvas, e);
+  S.pointers.delete(e.pointerId);
+
+  // end pinch when pointers drop
+  if(S.pointers.size < 2) S.pinch = null;
+
+  // tap-to-set
+  if(S.drag && S.drag.which===which && S.drag.idx === -1 && S.drag.maybeTap){
+    const pts = which==="front" ? S.frontPtsImg : S.backPtsImg;
+    if(pts.length < 4){
+      pts.push(viewToImg(which, p));
+      renderPhoto(which);
+      if(pts.length === 4){
+        if(which==="front") $("btnFrontWarp").disabled = false;
+        else $("btnBackWarp").disabled = false;
+        setStatus(`${which.toUpperCase()}: 4 Punkte gesetzt. Jetzt Entzerren.`);
+      } else {
+        setStatus(`${which.toUpperCase()}: Punkt ${pts.length}/4 gesetzt.`);
+      }
+    }
+  }
+
+  S.drag = null;
+}
+
+/* zoom buttons */
+$("btnFrontZoomIn").addEventListener("click", ()=>{ S.view.front.scale = clamp(S.view.front.scale*1.25, 1, 6); renderPhoto("front"); });
+$("btnFrontZoomOut").addEventListener("click", ()=>{ S.view.front.scale = clamp(S.view.front.scale/1.25, 1, 6); renderPhoto("front"); });
+$("btnFrontResetView").addEventListener("click", ()=>{ resetView("front"); renderPhoto("front"); });
+
+$("btnBackZoomIn").addEventListener("click", ()=>{ S.view.back.scale = clamp(S.view.back.scale*1.25, 1, 6); renderPhoto("back"); });
+$("btnBackZoomOut").addEventListener("click", ()=>{ S.view.back.scale = clamp(S.view.back.scale/1.25, 1, 6); renderPhoto("back"); });
+$("btnBackResetView").addEventListener("click", ()=>{ resetView("back"); renderPhoto("back"); });
+
+/* ----------------- Warp (fixed for iPhone) ----------------- */
+$("btnFrontWarp").addEventListener("click", ()=> warpA4("front"));
+$("btnBackWarp").addEventListener("click", ()=> warpA4("back"));
+
 function bitmapToCanvas(bmp){
   const c = document.createElement("canvas");
-  c.width = bmp.width; c.height = bmp.height;
+  c.width=bmp.width; c.height=bmp.height;
   c.getContext("2d").drawImage(bmp,0,0);
   return c;
 }
 
-/* ----------------- Grid rendering + interaction ----------------- */
+async function warpA4(which){
+  if(!S.cvReady) {
+    alert("OpenCV.js lädt noch. Bitte 1–2 Sekunden warten und nochmal.");
+    return;
+  }
+
+  const bmp = which==="front" ? S.frontBmp : S.backBmp;
+  const pts = which==="front" ? S.frontPtsImg : S.backPtsImg;
+  if(!bmp || pts.length!==4) {
+    alert("Bitte zuerst 4 Ecken tippen (TL→TR→BR→BL).");
+    return;
+  }
+
+  setStatus(`${which.toUpperCase()}: Entzerren läuft…`);
+
+  try{
+    const srcCanvas = bitmapToCanvas(bmp);
+    const src = cv.imread(srcCanvas);
+
+    const srcTri = cv.matFromArray(4,1,cv.CV_32FC2,[
+      pts[0].x, pts[0].y,
+      pts[1].x, pts[1].y,
+      pts[2].x, pts[2].y,
+      pts[3].x, pts[3].y
+    ]);
+    const dstTri = cv.matFromArray(4,1,cv.CV_32FC2,[
+      0,0,
+      A4_W,0,
+      A4_W,A4_H,
+      0,A4_H
+    ]);
+
+    const M = cv.getPerspectiveTransform(srcTri, dstTri);
+    const dst = new cv.Mat();
+    const dsize = new cv.Size(A4_W, A4_H);
+    cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255,255,255,255));
+
+    // iPhone-safe: imshow into normal canvas
+    const outCanvas = which==="front" ? $("frontWarpCanvas") : $("backWarpCanvas");
+    cv.imshow(outCanvas, dst);
+
+    // store
+    if(which==="front"){
+      S.frontWarp = outCanvas;
+      $("frontState").textContent = "entzerrt";
+      $("frontState").className = "badge ok";
+      $("gridState").textContent = "Front ok → Grid möglich";
+      $("gridState").className = "badge ok";
+      enableGridTools(true);
+      renderGrid();
+      setStatus("Front entzerrt. Jetzt Back entzerren, dann Grid anwenden.");
+    }else{
+      S.backWarp = outCanvas;
+      $("backState").textContent = "entzerrt";
+      $("backState").className = "badge ok";
+      setStatus("Back entzerrt. Jetzt Grid → Preview → Export.");
+    }
+
+    // cleanup
+    src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
+
+  }catch(err){
+    console.error(err);
+    alert("Entzerren fehlgeschlagen. Siehe Konsole. (Meist OpenCV nicht geladen oder iOS blockt was)");
+    setStatus("Entzerren fehlgeschlagen.");
+  }
+}
+
+/* ----------------- Grid tools ----------------- */
+function enableGridTools(on){
+  $("btnGridClear").disabled = !on;
+  $("btnGridSave").disabled = !on;
+  $("btnGridLoad").disabled = !on;
+  $("btnGridApply").disabled = !on;
+}
+
 $("btnGridClear").addEventListener("click", ()=>{
   S.xLines=[]; S.yLines=[];
   renderGrid();
   setStatus("Grid reset.");
 });
+
 $("btnGridSave").addEventListener("click", ()=>{
   if(!S.frontWarp) return alert("Erst Front entzerren.");
-  const data = { version: 1,
+  const data = { version:1,
     x_rel: S.xLines.map(x=>x/A4_W).sort((a,b)=>a-b),
-    y_rel: S.yLines.map(y=>y/A4_H).sort((a,b)=>a-b)
+    y_rel: S.yLines.map(y=>y/A4_H).sort((a,b)=>a-b),
   };
-  downloadBlob(new Blob([JSON.stringify(data,null,2)], {type:"application/json"}), "grid.json");
+  downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),"grid.json");
 });
+
 $("btnGridLoad").addEventListener("click", ()=> $("gridLoad").click());
 $("gridLoad").addEventListener("change", async (e)=>{
   const f=e.target.files?.[0]; if(!f) return;
-  const j = JSON.parse(await f.text());
+  const j=JSON.parse(await f.text());
   S.xLines=(j.x_rel||[]).map(r=>Math.round(r*A4_W));
   S.yLines=(j.y_rel||[]).map(r=>Math.round(r*A4_H));
   renderGrid();
@@ -562,14 +745,15 @@ $("gridLoad").addEventListener("change", async (e)=>{
 });
 
 $("btnGridApply").addEventListener("click", ()=>{
-  if(!S.frontWarp) return;
+  if(!S.frontWarp) return alert("Front fehlt.");
+  if(!S.backWarp) return alert("Back ist Pflicht – bitte Back entzerren.");
   buildCells();
   $("btnPreview").disabled = (S.cells.length===0);
-  $("btnExport").disabled = (S.cells.length===0 || !S.backWarp); // Back ist Pflicht
+  $("btnExport").disabled = (S.cells.length===0);
   $("prevState").textContent = S.cells.length ? "bereit" : "wartet";
   $("prevState").className = S.cells.length ? "badge ok" : "badge warn";
-  $("expState").textContent = (!S.backWarp) ? "wartet auf Back" : (S.cells.length ? "bereit" : "wartet");
-  $("expState").className = (S.backWarp && S.cells.length) ? "badge ok" : "badge warn";
+  $("expState").textContent = S.cells.length ? "bereit" : "wartet";
+  $("expState").className = S.cells.length ? "badge ok" : "badge warn";
   setStatus(`Grid angewandt: ${S.cells.length} Zellen.`);
 });
 
@@ -586,14 +770,12 @@ function renderGrid(){
     return;
   }
 
-  // draw warp fitted
-  const iw=A4_W, ih=A4_H;
-  const rr = Math.min(c.width/iw, c.height/ih);
-  const w=iw*rr, h=ih*rr;
+  // draw fitted A4 warp
+  const rr = Math.min(c.width/A4_W, c.height/A4_H);
+  const w=A4_W*rr, h=A4_H*rr;
   const ox=(c.width-w)/2, oy=(c.height-h)/2;
   ctx.drawImage(S.frontWarp, ox, oy, w, h);
 
-  // overlay lines & numbers
   const xs=[0,...S.xLines.sort((a,b)=>a-b),A4_W];
   const ys=[0,...S.yLines.sort((a,b)=>a-b),A4_H];
 
@@ -604,27 +786,21 @@ function renderGrid(){
   ctx.font="48px -apple-system";
 
   for(const xv of xs){
-    const X = ox + xv*rr;
-    ctx.beginPath(); ctx.moveTo(X, oy); ctx.lineTo(X, oy+h); ctx.stroke();
+    const X=ox + xv*rr;
+    ctx.beginPath(); ctx.moveTo(X,oy); ctx.lineTo(X,oy+h); ctx.stroke();
   }
   for(const yv of ys){
-    const Y = oy + yv*rr;
-    ctx.beginPath(); ctx.moveTo(ox, Y); ctx.lineTo(ox+w, Y); ctx.stroke();
+    const Y=oy + yv*rr;
+    ctx.beginPath(); ctx.moveTo(ox,Y); ctx.lineTo(ox+w,Y); ctx.stroke();
   }
-
   let idx=1;
   for(let r=0;r<ys.length-1;r++){
     for(let c2=0;c2<xs.length-1;c2++){
-      const tx=ox + xs[c2]*rr + 12;
-      const ty=oy + ys[r]*rr + 52;
-      ctx.fillText(String(idx), tx, ty);
+      ctx.fillText(String(idx), ox + xs[c2]*rr + 12, oy + ys[r]*rr + 52);
       idx++;
     }
   }
   ctx.restore();
-
-  $("gridState").textContent = "Grid editierbar";
-  $("gridState").className = "badge ok";
 }
 
 /* tap add line, long-press delete */
@@ -634,38 +810,25 @@ $("gridCanvas").addEventListener("pointerdown",(e)=>{
   const c=$("gridCanvas");
   c.setPointerCapture(e.pointerId);
   const p = localPoint(c,e);
-
   longPressTimer=setTimeout(()=>{ deleteNearestGridLine(p.x,p.y); }, 450);
 });
 $("gridCanvas").addEventListener("pointerup",(e)=>{
   if(!S.frontWarp) return;
-  clearTimeout(longPressTimer);
-  longPressTimer=null;
-
+  clearTimeout(longPressTimer); longPressTimer=null;
   const c=$("gridCanvas");
   const p = localPoint(c,e);
   addGridLineFromView(p.x,p.y);
 });
 
-function localPoint(canvas,e){
-  const r=canvas.getBoundingClientRect();
-  return {
-    x:(e.clientX-r.left)*(canvas.width/r.width),
-    y:(e.clientY-r.top)*(canvas.height/r.height)
-  };
-}
-function viewToA4(x,y){
+function viewToA4_grid(x,y){
   const c=$("gridCanvas");
-  const iw=A4_W, ih=A4_H;
-  const rr = Math.min(c.width/iw, c.height/ih);
-  const w=iw*rr, h=ih*rr;
+  const rr = Math.min(c.width/A4_W, c.height/A4_H);
+  const w=A4_W*rr, h=A4_H*rr;
   const ox=(c.width-w)/2, oy=(c.height-h)/2;
-  const ax = (x-ox)/rr;
-  const ay = (y-oy)/rr;
-  return {ax,ay};
+  return { ax:(x-ox)/rr, ay:(y-oy)/rr };
 }
 function addGridLineFromView(x,y){
-  const {ax,ay}=viewToA4(x,y);
+  const {ax,ay}=viewToA4_grid(x,y);
   const mode=$("gridMode").value;
   if(mode==="V"){
     S.xLines.push(Math.round(clamp(ax,1,A4_W-1)));
@@ -677,7 +840,7 @@ function addGridLineFromView(x,y){
   renderGrid();
 }
 function deleteNearestGridLine(x,y){
-  const {ax,ay}=viewToA4(x,y);
+  const {ax,ay}=viewToA4_grid(x,y);
   const thr=12;
   let best=null;
   for(let i=0;i<S.xLines.length;i++){
@@ -694,12 +857,11 @@ function deleteNearestGridLine(x,y){
   renderGrid();
 }
 
-/* ----------------- Cells + Tight crop ----------------- */
+/* ----------------- Cells + Tight + Preview + Export ----------------- */
 function buildCells(){
   const pad = parseInt($("gridPad").value||"0",10);
-  const xs=[0,...S.xLines,A4_W].map(v=>Math.round(v)).sort((a,b)=>a-b);
-  const ys=[0,...S.yLines,A4_H].map(v=>Math.round(v)).sort((a,b)=>a-b);
-
+  const xs=[0,...S.xLines,A4_W].sort((a,b)=>a-b);
+  const ys=[0,...S.yLines,A4_H].sort((a,b)=>a-b);
   const cells=[];
   for(let r=0;r<ys.length-1;r++){
     for(let c=0;c<xs.length-1;c++){
@@ -713,16 +875,16 @@ function buildCells(){
   S.cells=cells;
 }
 
-function getCellImage(offscreenCanvas, cell){
+function cropCanvas(srcCanvas, cell){
   const w=cell.x1-cell.x0, h=cell.y1-cell.y0;
-  const c=new OffscreenCanvas(w,h);
-  c.getContext("2d").drawImage(offscreenCanvas, cell.x0,cell.y0,w,h, 0,0,w,h);
+  const c=document.createElement("canvas");
+  c.width=w; c.height=h;
+  c.getContext("2d").drawImage(srcCanvas, cell.x0,cell.y0,w,h, 0,0,w,h);
   return c;
 }
 
-function safeTightOrFull(cellCanvas){
-  const tight = $("tight").checked;
-  if(!tight) return cellCanvas;
+function tightOrFull(cellCanvas){
+  if(!$("tight").checked) return cellCanvas;
 
   const pad = parseInt($("tightPad").value||"0",10);
   const minRatio = parseFloat($("minRatio").value||"0.005");
@@ -738,131 +900,100 @@ function safeTightOrFull(cellCanvas){
     for(let x=0;x<w;x++){
       const i=(y*w+x)*4;
       const r=img.data[i], g=img.data[i+1], b=img.data[i+2];
-      const isFg = (r<thr || g<thr || b<thr);
-      if(isFg){
+      const fg = (r<thr || g<thr || b<thr);
+      if(fg){
         count++;
-        if(x<minX) minX=x;
-        if(y<minY) minY=y;
-        if(x>maxX) maxX=x;
-        if(y>maxY) maxY=y;
+        if(x<minX) minX=x; if(y<minY) minY=y;
+        if(x>maxX) maxX=x; if(y>maxY) maxY=y;
       }
     }
   }
+  const ratio=count/(w*h);
+  if(ratio<minRatio) return cellCanvas;
 
-  const ratio = count/(w*h);
-  if(ratio < minRatio) return cellCanvas;
-
-  minX=clamp(minX-pad,0,w-1);
-  minY=clamp(minY-pad,0,h-1);
-  maxX=clamp(maxX+pad,0,w-1);
-  maxY=clamp(maxY+pad,0,h-1);
+  minX=clamp(minX-pad,0,w-1); minY=clamp(minY-pad,0,h-1);
+  maxX=clamp(maxX+pad,0,w-1); maxY=clamp(maxY+pad,0,h-1);
 
   const cw=maxX-minX+1, ch=maxY-minY+1;
   if((cw/w)<keep || (ch/h)<keep) return cellCanvas;
 
-  const out=new OffscreenCanvas(cw,ch);
+  const out=document.createElement("canvas");
+  out.width=cw; out.height=ch;
   out.getContext("2d").drawImage(cellCanvas, minX,minY,cw,ch, 0,0,cw,ch);
   return out;
 }
 
-function drawCanvasTo(canvas, offscreenCanvas){
+function drawFitTo(canvas, src){
   const ctx=canvas.getContext("2d");
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const r = Math.min(canvas.width/offscreenCanvas.width, canvas.height/offscreenCanvas.height);
-  const w = offscreenCanvas.width*r, h = offscreenCanvas.height*r;
+  const r=Math.min(canvas.width/src.width, canvas.height/src.height);
+  const w=src.width*r, h=src.height*r;
   const x=(canvas.width-w)/2, y=(canvas.height-h)/2;
-  ctx.drawImage(offscreenCanvas, x,y,w,h);
+  ctx.drawImage(src,x,y,w,h);
 }
 
-$("btnPreview").addEventListener("click", ()=> updateKnobPreview());
-
-function updateKnobPreview(){
-  if(!S.frontWarp) return alert("Erst Front entzerren.");
-  if(!S.backWarp) return alert("Back ist Pflicht: bitte Back entzerren.");
+$("btnPreview").addEventListener("click", ()=>{
+  if(!S.frontWarp || !S.backWarp) return alert("Front & Back müssen entzerrt sein.");
   buildCells();
   if(!S.cells.length) return alert("Grid ergibt keine Zellen.");
+  const idx=clamp(parseInt($("idx").value||"1",10), 1, S.cells.length);
+  $("idx").value=idx;
+  const cell=S.cells[idx-1];
 
-  const idx = clamp(parseInt($("idx").value||"1",10), 1, S.cells.length);
-  $("idx").value = idx;
-
-  const cell = S.cells[idx-1];
-
-  const fCell = getCellImage(S.frontWarp, cell);
-  const fCrop = safeTightOrFull(fCell);
-  drawCanvasTo($("knobFront"), fCrop);
-
-  const bCell = getCellImage(S.backWarp, cell);
-  const bCrop = safeTightOrFull(bCell);
-  drawCanvasTo($("knobBack"), bCrop);
-
-  $("prevState").textContent = "bereit";
-  $("prevState").className = "badge ok";
-  $("btnExport").disabled = false;
+  const f=tightOrFull(cropCanvas(S.frontWarp, cell));
+  const b=tightOrFull(cropCanvas(S.backWarp, cell));
+  drawFitTo($("knobFront"), f);
+  drawFitTo($("knobBack"), b);
   setStatus("Preview aktualisiert.");
-}
+});
 
-/* ----------------- Export ZIP ----------------- */
-async function canvasToBlob(offscreenCanvas, fmt, jpgq){
+async function canvasToBlob(c, fmt, q){
   return await new Promise(res=>{
-    const c=document.createElement("canvas");
-    c.width=offscreenCanvas.width; c.height=offscreenCanvas.height;
-    c.getContext("2d").drawImage(offscreenCanvas,0,0);
     if(fmt==="png") c.toBlob(res,"image/png");
-    else c.toBlob(res,"image/jpeg", jpgq);
+    else c.toBlob(res,"image/jpeg", q);
   });
 }
 
-$("btnExport").addEventListener("click", ()=> exportZip());
-
-async function exportZip(){
+$("btnExport").addEventListener("click", async ()=>{
   if(!S.frontWarp || !S.backWarp) return alert("Front & Back müssen entzerrt sein.");
   buildCells();
   if(!S.cells.length) return alert("Grid ergibt keine Zellen.");
 
-  const fmt = $("fmt").value;
-  const jpgq = parseInt($("jpgq").value,10)/100;
-  const doPairs = $("pairs").checked;
+  const fmt=$("fmt").value;
+  const q=parseInt($("jpgq").value,10)/100;
+  const doPairs=$("pairs").checked;
 
-  const zip = new JSZip();
-  const frontFolder = zip.folder("front");
-  const backFolder  = zip.folder("back");
-  const pairFolder  = doPairs ? zip.folder("pairs") : null;
+  const zip=new JSZip();
+  const F=zip.folder("front");
+  const B=zip.folder("back");
+  const P=doPairs ? zip.folder("pairs") : null;
 
   setStatus("Export läuft…");
-
   for(let i=0;i<S.cells.length;i++){
-    const cell = S.cells[i];
+    const cell=S.cells[i];
 
-    const fCell = getCellImage(S.frontWarp, cell);
-    const fCrop = safeTightOrFull(fCell);
-    const fBlob = await canvasToBlob(fCrop, fmt, jpgq);
-    frontFolder.file(`front_${String(i+1).padStart(3,"0")}.${fmt}`, fBlob);
+    const f=tightOrFull(cropCanvas(S.frontWarp, cell));
+    const b=tightOrFull(cropCanvas(S.backWarp, cell));
 
-    const bCell = getCellImage(S.backWarp, cell);
-    const bCrop = safeTightOrFull(bCell);
-    const bBlob = await canvasToBlob(bCrop, fmt, jpgq);
-    backFolder.file(`back_${String(i+1).padStart(3,"0")}.${fmt}`, bBlob);
+    F.file(`front_${String(i+1).padStart(3,"0")}.${fmt}`, await canvasToBlob(f, fmt, q));
+    B.file(`back_${String(i+1).padStart(3,"0")}.${fmt}`,  await canvasToBlob(b, fmt, q));
 
     if(doPairs){
-      const pair = new OffscreenCanvas(fCrop.width + bCrop.width, Math.max(fCrop.height, bCrop.height));
-      const pctx = pair.getContext("2d");
+      const pair=document.createElement("canvas");
+      pair.width=f.width+b.width; pair.height=Math.max(f.height,b.height);
+      const pctx=pair.getContext("2d");
       pctx.fillStyle="#fff"; pctx.fillRect(0,0,pair.width,pair.height);
-      pctx.drawImage(fCrop, 0, 0);
-      pctx.drawImage(bCrop, fCrop.width, 0);
-      const pBlob = await canvasToBlob(pair, "jpg", jpgq);
-      pairFolder.file(`pair_${String(i+1).padStart(3,"0")}.jpg`, pBlob);
+      pctx.drawImage(f,0,0);
+      pctx.drawImage(b,f.width,0);
+      P.file(`pair_${String(i+1).padStart(3,"0")}.jpg`, await canvasToBlob(pair,"jpg",q));
     }
-
     if((i+1)%5===0) setStatus(`Export… ${i+1}/${S.cells.length}`);
   }
 
-  const outBlob = await zip.generateAsync({type:"blob"});
-  downloadBlob(outBlob, "buttongridtool_export.zip");
+  downloadBlob(await zip.generateAsync({type:"blob"}), "buttongridtool_export.zip");
   setStatus("Fertig. ZIP geladen.");
-  $("expState").textContent = "fertig";
-  $("expState").className = "badge ok";
-}
+});
 </script>
 </body>
 </html>
