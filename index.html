@@ -97,6 +97,12 @@
     .paypalImg{
       width:160px; max-width:80%; height:auto; display:block;
     }
+
+    .qrImg{
+      width:220px; height:220px;
+      background:#fff; border-radius:12px; border:1px solid #ddd;
+      display:block;
+    }
   </style>
 </head>
 <body>
@@ -387,9 +393,9 @@
         </div>
 
         <div id="paypalQrWrap" style="display:none; margin-top:8px;">
-          <canvas id="paypalQr" width="220" height="220"
-            style="width:220px; height:220px; background:#fff; border-radius:12px; border:1px solid #ddd;"></canvas>
+          <img id="paypalQrImg" class="qrImg" alt="PayPal QR" />
           <div class="small muted" style="margin-top:6px;">Scan → PayPal-Link öffnet.</div>
+          <div id="paypalQrHint" class="small muted" style="margin-top:6px;"></div>
         </div>
       </div>
 
@@ -412,14 +418,14 @@
         </div>
 
         <div id="btcQrWrap" style="display:none; margin-top:8px;">
-          <canvas id="btcQr" width="220" height="220"
-            style="width:220px; height:220px; background:#fff; border-radius:12px; border:1px solid #ddd;"></canvas>
+          <img id="btcQrImg" class="qrImg" alt="BTC QR" />
           <div class="small muted" style="margin-top:6px;">Scan → Wallet sollte Adresse übernehmen.</div>
+          <div id="btcQrHint" class="small muted" style="margin-top:6px;"></div>
         </div>
 
         <div class="small muted">“Jetzt zahlen” klappt in vielen Wallets direkt (sonst kopieren).</div>
       </div>
-    </div>
+    </div> <!-- /ctaGrid -->
 
     <div class="hr"></div>
 
@@ -439,9 +445,8 @@
 <canvas id="frontWarpCanvas" width="2480" height="3508" hidden></canvas>
 <canvas id="backWarpCanvas" width="2480" height="3508" hidden></canvas>
 
-<!-- Libraries (einmal, sauber) -->
+<!-- libs (nur das, was wir wirklich brauchen) -->
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js"></script>
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
 <script>
@@ -505,56 +510,38 @@ function toggleWrap(id){
   el.style.display = (el.style.display==="none" || !el.style.display) ? "block" : "none";
 }
 
-/* ----------------- QR ----------------- */
-function ensureQRCode(){
-  if(!window.QRCode || typeof window.QRCode.toCanvas !== "function"){
-    throw new Error("QRCode-Library nicht geladen (blocked/failed).");
-  }
-}
-async function makeQR(canvasId, text){
-  ensureQRCode();
-  const c = $(canvasId);
-  const ctx = c.getContext("2d");
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.clearRect(0,0,c.width,c.height);
-
-  await window.QRCode.toCanvas(c, text, {
-    width: 220,
-    margin: 2,
-    errorCorrectionLevel: "M"
-  });
-}
-
+/* ----------------- QR (ohne QR-Library, robust gegen CDN/AdBlock) ----------------- */
 const PAYPAL_URL = "https://paypal.me/rophko";
 const BTC_ADDR   = "bc1qwr08y9ngmvplpr8tuk4w34rl4pkryur8u4cf5f";
 const BTC_URI    = `bitcoin:${BTC_ADDR}`;
 
-$("btnPaypalQR").addEventListener("click", async ()=>{
-  try{
-    toggleWrap("paypalQrWrap");
-    if($("paypalQrWrap").style.display==="block"){
-      await makeQR("paypalQr", PAYPAL_URL);
-    }
-  }catch(err){
-    console.error(err);
-    alert("QR-Code konnte nicht erzeugt werden. Prüfe ob qrcode.min.js geladen wurde (AdBlock/Offline).");
+function qrImgUrl(text){
+  const data = encodeURIComponent(text);
+  // Image-QR: keine JS-Library nötig.
+  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=2&data=${data}`;
+}
+function setQrImage(imgEl, hintEl, text){
+  imgEl.src = qrImgUrl(text);
+  hintEl.textContent = "Wenn QR leer bleibt: Internet/Content-Blocker prüfen. Link/Copy geht immer.";
+}
+
+$("btnPaypalQR").addEventListener("click", ()=>{
+  toggleWrap("paypalQrWrap");
+  if($("paypalQrWrap").style.display==="block"){
+    setQrImage($("paypalQrImg"), $("paypalQrHint"), PAYPAL_URL);
   }
 });
 
-$("btnBtcQR").addEventListener("click", async ()=>{
-  try{
-    toggleWrap("btcQrWrap");
-    if($("btcQrWrap").style.display==="block"){
-      await makeQR("btcQr", BTC_URI);
-    }
-  }catch(err){
-    console.error(err);
-    alert("QR-Code konnte nicht erzeugt werden. Prüfe ob qrcode.min.js geladen wurde (AdBlock/Offline).");
+$("btnBtcQR").addEventListener("click", ()=>{
+  toggleWrap("btcQrWrap");
+  if($("btcQrWrap").style.display==="block"){
+    setQrImage($("btcQrImg"), $("btcQrHint"), BTC_URI);
   }
 });
 
 $("btnCopyBTC").addEventListener("click", ()=> copyText($("btcText").textContent.trim()));
 
+/* Settings */
 $("jpgq").addEventListener("input", ()=> $("jpgqLabel").textContent = $("jpgq").value);
 $("jpgqLabel").textContent = $("jpgq").value;
 
@@ -1396,6 +1383,7 @@ $("btnPreview").addEventListener("click", ()=>{
 
 /* Export */
 async function canvasToBlob(c, fmt, q){
+  // fmt: "png" | "jpg"
   return await new Promise(res=>{
     if(fmt==="png") c.toBlob(res,"image/png");
     else c.toBlob(res,"image/jpeg", q);
@@ -1430,6 +1418,7 @@ $("btnExport").addEventListener("click", async ()=>{
 
     if(doPairs){
       const pair = buildPairCanvas(f,b);
+      // Pairs immer JPG (kleiner, universell)
       P.file(`pair_${pad3(cell.idx)}.jpg`, await canvasToBlob(pair, "jpg", q));
     }
 
@@ -1441,6 +1430,9 @@ $("btnExport").addEventListener("click", async ()=>{
   downloadBlob(outBlob, "buttongridtool_export.zip");
   setStatus(`Fertig. Exportiert: ${exported} Zellen (deaktiviert: ${S.disabledCells.size}).`);
 });
+
+/* Startstatus */
+setStatus("OpenCV.js lädt…");
 </script>
 </body>
 </html>
