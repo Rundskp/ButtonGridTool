@@ -1,0 +1,27 @@
+ButtonGridTool-Wizard
+Copyright (c) 2025 Roland Konrad
+
+NON-COMMERCIAL LICENSE
+
+Permission is hereby granted to any person obtaining a copy of this software
+and associated documentation files (the “Software”) to use the Software
+for private and non-commercial purposes.
+
+Redistribution of the Software in unmodified form is permitted, provided that:
+- this license text remains included,
+- all copyright notices remain intact,
+- attribution to the original author (Roland Konrad) is preserved,
+- donation links and references to the original project remain visible.
+
+The following is NOT permitted without explicit prior written permission
+from the author:
+- any commercial use of the Software,
+- selling, licensing, or monetizing the Software or services based on it,
+- redistribution of modified versions of the Software,
+- removal or obscuring of copyright notices or donation references.
+
+This Software is provided “as is”, without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability,
+fitness for a particular purpose and noninfringement.
+
+For permissions beyond the scope of this license, contact the author.
