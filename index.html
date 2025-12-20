@@ -59,28 +59,27 @@
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
 
     .copyRow{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  flex-wrap:wrap;
-  max-width:100%;
-  width:100%;
-}
-/* iOS / Flex overflow fix */
-.payCard, .pill, .row, .modal { min-width: 0; }
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      max-width:100%;
+      width:100%;
+    }
+    /* iOS / Flex overflow fix */
+    .payCard, .pill, .row, .modal { min-width: 0; }
 
-.copyBox{
-  flex:1;
-  min-width:0;
-  width:100%;
-  padding:10px 12px;
-  border:1px solid #ddd;
-  border-radius:12px;
-  background:#fafafa;
-  overflow-wrap:anywhere;
-  word-break:break-word;
-}
-
+    .copyBox{
+      flex:1;
+      min-width:0;
+      width:100%;
+      padding:10px 12px;
+      border:1px solid #ddd;
+      border-radius:12px;
+      background:#fafafa;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
 
     .ctaGrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     @media (max-width:720px){ .ctaGrid{ grid-template-columns:1fr; } }
@@ -367,60 +366,60 @@
     </p>
 
     <div class="ctaGrid">
-      
+
       <!-- PayPal -->
-<div class="payCard">
-  <div class="muted"><b>PayPal</b></div>
+      <div class="payCard">
+        <div class="muted"><b>PayPal</b></div>
 
-  <a class="payBtnBig" href="https://paypal.me/rophko" target="_blank" rel="noopener">
-    <img class="paypalImg" alt="PayPal" src="data:image/svg+xml;utf8,
-      <svg xmlns='http://www.w3.org/2000/svg' width='420' height='140' viewBox='0 0 420 140'>
-        <rect width='420' height='140' rx='24' fill='%23f5f7ff'/>
-        <text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='44' fill='%23003087'>PayPal</text>
-        <text x='50%25' y='80%25' text-anchor='middle' font-family='Arial' font-size='20' fill='%23003087'>Jetzt spenden</text>
-      </svg>"/>
-  </a>
+        <a class="payBtnBig" href="https://paypal.me/rophko" target="_blank" rel="noopener">
+          <img class="paypalImg" alt="PayPal" src="data:image/svg+xml;utf8,
+            <svg xmlns='http://www.w3.org/2000/svg' width='420' height='140' viewBox='0 0 420 140'>
+              <rect width='420' height='140' rx='24' fill='%23f5f7ff'/>
+              <text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='44' fill='%23003087'>PayPal</text>
+              <text x='50%25' y='80%25' text-anchor='middle' font-family='Arial' font-size='20' fill='%23003087'>Jetzt spenden</text>
+            </svg>"/>
+        </a>
 
-  <div class="small muted">Tippen → PayPal öffnet direkt.</div>
+        <div class="small muted">Tippen → PayPal öffnet direkt.</div>
 
-  <div class="row" style="margin-top:6px;">
-    <button id="btnPaypalQR" type="button">QR anzeigen</button>
-  </div>
+        <div class="row" style="margin-top:6px;">
+          <button id="btnPaypalQR" type="button">QR anzeigen</button>
+        </div>
 
-  <div id="paypalQrWrap" style="display:none; margin-top:8px;">
-    <canvas id="paypalQr" width="220" height="220"
-      style="width:220px; height:220px; background:#fff; border-radius:12px; border:1px solid #ddd;"></canvas>
-    <div class="small muted" style="margin-top:6px;">Scan → PayPal-Link öffnet.</div>
-  </div>
-</div>
+        <div id="paypalQrWrap" style="display:none; margin-top:8px;">
+          <canvas id="paypalQr" width="220" height="220"
+            style="width:220px; height:220px; background:#fff; border-radius:12px; border:1px solid #ddd;"></canvas>
+          <div class="small muted" style="margin-top:6px;">Scan → PayPal-Link öffnet.</div>
+        </div>
+      </div>
 
       <!-- BTC -->
-<div class="payCard">
-  <div class="muted"><b>Bitcoin (BTC)</b></div>
+      <div class="payCard">
+        <div class="muted"><b>Bitcoin (BTC)</b></div>
 
-  <div class="copyRow">
-    <div class="copyBox mono" id="btcText">bc1qwr08y9ngmvplpr8tuk4w34rl4pkryur8u4cf5f</div>
-    <button id="btnCopyBTC">Kopieren</button>
-    <a href="bitcoin:bc1qwr08y9ngmvplpr8tuk4w34rl4pkryur8u4cf5f"
-       class="primary"
-       style="display:inline-flex; align-items:center; justify-content:center; border-radius:10px; padding:10px 12px; border:1px solid var(--b);">
-      Jetzt zahlen
-    </a>
-  </div>
+        <div class="copyRow">
+          <div class="copyBox mono" id="btcText">bc1qwr08y9ngmvplpr8tuk4w34rl4pkryur8u4cf5f</div>
+          <button id="btnCopyBTC">Kopieren</button>
+          <a href="bitcoin:bc1qwr08y9ngmvplpr8tuk4w34rl4pkryur8u4cf5f"
+             class="primary"
+             style="display:inline-flex; align-items:center; justify-content:center; border-radius:10px; padding:10px 12px; border:1px solid var(--b);">
+            Jetzt zahlen
+          </a>
+        </div>
 
-  <div class="row" style="margin-top:6px;">
-    <button id="btnBtcQR" type="button">QR anzeigen</button>
-  </div>
+        <div class="row" style="margin-top:6px;">
+          <button id="btnBtcQR" type="button">QR anzeigen</button>
+        </div>
 
-  <div id="btcQrWrap" style="display:none; margin-top:8px;">
-    <canvas id="btcQr" width="220" height="220"
-      style="width:220px; height:220px; background:#fff; border-radius:12px; border:1px solid #ddd;"></canvas>
-    <div class="small muted" style="margin-top:6px;">Scan → Wallet sollte Adresse übernehmen.</div>
-  </div>
+        <div id="btcQrWrap" style="display:none; margin-top:8px;">
+          <canvas id="btcQr" width="220" height="220"
+            style="width:220px; height:220px; background:#fff; border-radius:12px; border:1px solid #ddd;"></canvas>
+          <div class="small muted" style="margin-top:6px;">Scan → Wallet sollte Adresse übernehmen.</div>
+        </div>
 
-  <div class="small muted">“Jetzt zahlen” klappt in vielen Wallets direkt (sonst kopieren).</div>
-</div> <!-- BTC payCard -->
-</div> <!-- /ctaGrid -->
+        <div class="small muted">“Jetzt zahlen” klappt in vielen Wallets direkt (sonst kopieren).</div>
+      </div>
+    </div>
 
     <div class="hr"></div>
 
@@ -440,32 +439,12 @@
 <canvas id="frontWarpCanvas" width="2480" height="3508" hidden></canvas>
 <canvas id="backWarpCanvas" width="2480" height="3508" hidden></canvas>
 
+<!-- Libraries (einmal, sauber) -->
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js"></script>
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
 <script>
-function ensureQRCode(){
-  if(!window.QRCode){
-    throw new Error("QRCode-Library nicht geladen. Check Network/AdBlock/URL.");
-  }
-}
-
-async function makeQR(canvasId, text){
-  ensureQRCode();
-  const c = document.getElementById(canvasId);
-  const ctx = c.getContext("2d");
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.clearRect(0,0,c.width,c.height);
-
-  await window.QRCode.toCanvas(c, text, {
-    width: 220,
-    margin: 2,
-    errorCorrectionLevel: "M"
-  });
-}
-</script>
-
 /* ----------------- Utils ----------------- */
 const $ = (id)=>document.getElementById(id);
 const statusEl = $("status");
@@ -520,19 +499,26 @@ $("donateBackdrop").addEventListener("click", (e)=>{ if(e.target===$("donateBack
 $("btnHelp").addEventListener("click", ()=> openModal("helpBackdrop"));
 $("btnHelpClose").addEventListener("click", ()=> closeModal("helpBackdrop"));
 $("helpBackdrop").addEventListener("click", (e)=>{ if(e.target===$("helpBackdrop")) closeModal("helpBackdrop"); });
+
 function toggleWrap(id){
   const el = $(id);
   el.style.display = (el.style.display==="none" || !el.style.display) ? "block" : "none";
 }
 
+/* ----------------- QR ----------------- */
+function ensureQRCode(){
+  if(!window.QRCode || typeof window.QRCode.toCanvas !== "function"){
+    throw new Error("QRCode-Library nicht geladen (blocked/failed).");
+  }
+}
 async function makeQR(canvasId, text){
+  ensureQRCode();
   const c = $(canvasId);
-  // canvas leeren
   const ctx = c.getContext("2d");
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,c.width,c.height);
-  // QR rendern
-  await QRCode.toCanvas(c, text, {
+
+  await window.QRCode.toCanvas(c, text, {
     width: 220,
     margin: 2,
     errorCorrectionLevel: "M"
@@ -541,21 +527,29 @@ async function makeQR(canvasId, text){
 
 const PAYPAL_URL = "https://paypal.me/rophko";
 const BTC_ADDR   = "bc1qwr08y9ngmvplpr8tuk4w34rl4pkryur8u4cf5f";
-// Optional: viele Wallets mögen bitcoin:-URI, manche lieber plain addr.
-// Wir machen bitcoin: (mit fallback durch Copy sowieso ok)
 const BTC_URI    = `bitcoin:${BTC_ADDR}`;
 
 $("btnPaypalQR").addEventListener("click", async ()=>{
-  toggleWrap("paypalQrWrap");
-  if($("paypalQrWrap").style.display==="block"){
-    await makeQR("paypalQr", PAYPAL_URL);
+  try{
+    toggleWrap("paypalQrWrap");
+    if($("paypalQrWrap").style.display==="block"){
+      await makeQR("paypalQr", PAYPAL_URL);
+    }
+  }catch(err){
+    console.error(err);
+    alert("QR-Code konnte nicht erzeugt werden. Prüfe ob qrcode.min.js geladen wurde (AdBlock/Offline).");
   }
 });
 
 $("btnBtcQR").addEventListener("click", async ()=>{
-  toggleWrap("btcQrWrap");
-  if($("btcQrWrap").style.display==="block"){
-    await makeQR("btcQr", BTC_URI);
+  try{
+    toggleWrap("btcQrWrap");
+    if($("btcQrWrap").style.display==="block"){
+      await makeQR("btcQr", BTC_URI);
+    }
+  }catch(err){
+    console.error(err);
+    alert("QR-Code konnte nicht erzeugt werden. Prüfe ob qrcode.min.js geladen wurde (AdBlock/Offline).");
   }
 });
 
@@ -1447,7 +1441,6 @@ $("btnExport").addEventListener("click", async ()=>{
   downloadBlob(outBlob, "buttongridtool_export.zip");
   setStatus(`Fertig. Exportiert: ${exported} Zellen (deaktiviert: ${S.disabledCells.size}).`);
 });
-
 </script>
 </body>
 </html>
