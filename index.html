@@ -441,10 +441,31 @@
 <canvas id="backWarpCanvas" width="2480" height="3508" hidden></canvas>
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://unpkg.com/qrcode@1.5.4/build/qrcode.min.js"></script>
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
 
 <script>
+function ensureQRCode(){
+  if(!window.QRCode){
+    throw new Error("QRCode-Library nicht geladen. Check Network/AdBlock/URL.");
+  }
+}
+
+async function makeQR(canvasId, text){
+  ensureQRCode();
+  const c = document.getElementById(canvasId);
+  const ctx = c.getContext("2d");
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,c.width,c.height);
+
+  await window.QRCode.toCanvas(c, text, {
+    width: 220,
+    margin: 2,
+    errorCorrectionLevel: "M"
+  });
+}
+</script>
+
 /* ----------------- Utils ----------------- */
 const $ = (id)=>document.getElementById(id);
 const statusEl = $("status");
