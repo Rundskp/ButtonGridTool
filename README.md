@@ -50,8 +50,7 @@ Wenn dir das Tool Zeit oder Nerven spart und du mich unterstützen möchtest,
 freue ich mich über eine Spende (PayPal oder Bitcoin – siehe im Tool).
 
 Oder:  
-👉 **YouTube-Kanal abonnieren** – freut mich genauso 🙂
-➡️ https://youtube.com/@rolandkonrad?sub_confirmation=1
+[👉 **YouTube-Kanal abonnieren** – freut mich genauso 🙂](https://youtube.com/@rolandkonrad?sub_confirmation=1)
 
 ---
 
