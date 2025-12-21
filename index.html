@@ -2,37 +2,40 @@
 <html lang="de">
 <head>
   <link rel="apple-touch-icon" href="icon-180.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="ButtonGridTool">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ButtonGridTool">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ButtonGridTool-Wizard</title>
   <style>
-    :root { --pad: 12px; --gap: 10px; --b:#2b6cff; }
+    :root { --pad: 12px; --gap: 10px; --b:#2b6cff; --hdrH: 56px; }
     * { box-sizing: border-box; }
     html, body { width:100%; max-width:100%; overflow-x:hidden; }
     body { font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; margin:0; background:#f5f6f8; }
 
-    header {
+    /* FIX: Header wirklich immer sichtbar */
+    header{
       background:#fff; border-bottom:1px solid #ddd; padding:10px 12px;
-      position:sticky; top:0; z-index:10;
+      position:fixed; top:0; left:0; right:0; z-index:1000;
       display:flex; align-items:center; justify-content:space-between; gap:10px;
-      max-width:100%;
+      width:100%;
     }
     header h1 { font-size:16px; margin:0; }
     .hdrBtns{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 
-    button, select, input[type="number"], input[type="range"] {
+    button, select, input[type="number"], input[type="range"]{
       font-size:16px; padding:10px 12px; border-radius:10px; border:1px solid #bbb; background:#fff;
       max-width:100%;
     }
     button.primary{ background:var(--b); color:#fff; border-color:var(--b); }
     button.danger{ background:#ff3b30; color:#fff; border-color:#ff3b30; }
     button:disabled{ opacity:.5; }
-    a { text-decoration:none; }
+    a{ text-decoration:none; }
 
-    main{ padding:var(--pad); max-width:980px; margin:0 auto; width:100%; }
+    /* FIX: Platz unter fixed header */
+    main{ padding:calc(var(--pad) + var(--hdrH)) var(--pad) var(--pad); max-width:980px; margin:0 auto; width:100%; }
+
     .card{ background:#fff; border:1px solid #ddd; border-radius:10px; padding:12px; margin:10px 0; max-width:100%; }
     .row{ display:flex; flex-wrap:wrap; gap:var(--gap); align-items:center; max-width:100%; }
     .pill{ display:inline-flex; gap:8px; align-items:center; padding:8px 10px; border:1px solid #ddd; border-radius:999px; max-width:100%; }
@@ -51,7 +54,7 @@
     /* modal */
     .modalBackdrop{
       position:fixed; inset:0; background:rgba(0,0,0,.35);
-      display:none; align-items:flex-end; justify-content:center; z-index:999;
+      display:none; align-items:flex-end; justify-content:center; z-index:9999;
       padding:12px;
     }
     .modal{
@@ -70,7 +73,6 @@
       max-width:100%;
       width:100%;
     }
-    /* iOS / Flex overflow fix */
     .payCard, .pill, .row, .modal { min-width: 0; }
 
     .copyBox{
@@ -98,9 +100,7 @@
       min-height:64px;
     }
     .payBtnBig:active{ transform: scale(.99); }
-    .paypalImg{
-      width:160px; max-width:80%; height:auto; display:block;
-    }
+    .paypalImg{ width:160px; max-width:80%; height:auto; display:block; }
 
     .qrImg{
       width:220px; height:220px;
@@ -134,8 +134,17 @@
       <button id="btnFrontCam" class="primary">📷 Foto machen</button>
       <button id="btnFrontPick">📁 Datei benutzen</button>
 
+      <span class="pill"><b>Format</b>
+        <select id="paperFmt">
+          <option value="A4_L" selected>A4 quer</option>
+          <option value="A4_P">A4 hoch</option>
+          <option value="A5_L">A5 quer</option>
+          <option value="A5_P">A5 hoch</option>
+        </select>
+      </span>
+
       <button id="btnFrontManual" disabled>Manuell 4 Ecken</button>
-      <button id="btnFrontWarp" class="primary" disabled>Entzerren (A4)</button>
+      <button id="btnFrontWarp" class="primary" disabled>Entzerren</button>
       <button id="btnFrontSkipWarp" disabled>Ohne Entzerren weiter</button>
 
       <button id="btnFrontResetView" class="toolbtn" disabled>Reset View</button>
@@ -144,7 +153,8 @@
     <canvas id="frontCanvas" width="1200" height="900"></canvas>
 
     <p class="small">
-      <b>Ecken setzen:</b> Tippe 4×: <b>TL → TR → BR → BL</b>. Danach Punkte ziehen. <br>
+      <b>Wichtig:</b> Die 4 Punkte sind die <b>Papiereckpunkte</b> (nicht die Objekt-Ecken).<br>
+      <b>Reihenfolge:</b> Tippe 4×: <b>TL → TR → BR → BL</b>. Danach Punkte ziehen. <br>
       <b>Zoom/Pan:</b> Pinch-Zoom + ziehen. Punkte bleiben stabil. Dann <b>Entzerren</b> (oder <b>Ohne Entzerren</b>).
     </p>
   </div>
@@ -164,7 +174,7 @@
       <button id="btnBackPick" disabled>📁 Datei benutzen</button>
 
       <button id="btnBackManual" disabled>Manuell 4 Ecken</button>
-      <button id="btnBackWarp" class="primary" disabled>Entzerren (A4)</button>
+      <button id="btnBackWarp" class="primary" disabled>Entzerren</button>
       <button id="btnBackSkipWarp" disabled>Ohne Entzerren weiter</button>
 
       <button id="btnBackResetView" class="toolbtn" disabled>Reset View</button>
@@ -172,7 +182,7 @@
 
     <canvas id="backCanvas" width="1200" height="900"></canvas>
     <p class="small muted">
-      Tipp: Wenn du ohne Entzerren arbeitest, mach Front/Back möglichst gleich: gleiche Entfernung, gleicher Winkel.
+      Back übernimmt automatisch das Format von Front. Punkte sind wieder die <b>Papiereckpunkte</b>.
     </p>
   </div>
 
@@ -212,9 +222,9 @@
     <canvas id="gridCanvas" width="1200" height="900"></canvas>
 
     <p class="small">
-      <b>Linien:</b> Tap = Linie setzen · <b>Pinch/Drag = Zoom/Pan</b> (setzt keine Linien) <br>
-      <b>Zellen:</b> <b>Doppeltipp</b> auf eine Zelle = aus/ein (aus = rot, wird nicht exportiert) <br>
-      <b>Back check:</b> Umschalten auf <b>Back</b> und schauen, ob was abgeschnitten wäre.
+      <b>Linien:</b> Tap = Linie setzen · <b>Pinch/Drag = Zoom/Pan</b> (setzt keine Linien)<br>
+      <b>Zellen:</b> <b>Doppeltipp</b> auf eine Zelle = aus/ein (aus = rot, wird nicht exportiert)<br>
+      <b>Back check:</b> Umschalten auf <b>Back</b> und schauen, ob etwas abgeschnitten wäre.
     </p>
   </div>
 
@@ -315,7 +325,7 @@
     <p class="small" style="margin-top:10px;">
       <b>Format</b>: PNG = verlustfrei, JPG = kleiner.<br>
       <b>JPG Q</b>: 50–100, höher = bessere Qualität, größere Dateien.<br>
-      <b>Tight</b>: versucht pro Zelle den Button enger zu croppen (weißes Papier weg).<br>
+      <b>Tight</b>: versucht pro Zelle den Button enger zu croppen (Papier weg).<br>
       <b>Tight-Pad</b>: zusätzlicher Rand um den Button nach dem Tight-Crop.<br>
       <b>Min-Ratio</b>: wie viel “nicht-weiß” mindestens da sein muss, sonst kein Tight-Crop (Schutz gegen Fehl-Crops).<br>
       <b>Safety Keep</b>: verhindert, dass Tight-Crop zu aggressiv wird (sonst fallback auf ganze Zelle).<br>
@@ -342,28 +352,26 @@
     </p>
 
     <p class="small">
-      <b>Was kann es?</b><br>
-      • Manuell 4 Ecken setzen und A4-perspektivisch entzerren (OpenCV).<br>
-      • Oder ohne Entzerren weiterarbeiten (wenn Foto sauber/gleichmäßig ist).<br>
-      • Grid-Linien setzen, Zellen per Doppeltipp deaktivieren (rot).<br>
-      • Vorschau für Front/Back/Pair, dann Export als ZIP.
+      <b>Wichtig (Entzerren richtig):</b><br>
+      • Wähle in Step 1 zuerst das <b>Papierformat</b> (A4/A5, quer/hoch).<br>
+      • Die 4 Punkte sind die <b>Ecken des Papiers</b> (nicht die Ecken der Objekte).<br>
+      • Tippe/Setze die 4 Papierecken in der Reihenfolge: <b>TL → TR → BR → BL</b>.<br>
+      • Back übernimmt automatisch das Format von Front.
     </p>
-
-    <div class="hr"></div>
 
     <p class="small">
-      <b>So nutzt du es korrekt (Kurz-Anleitung)</b><br>
-      1) Step 1: Front laden → “Manuell 4 Ecken” → TL→TR→BR→BL tippen → Punkte feinziehen → “Entzerren” (oder “Ohne Entzerren”).<br>
-      2) Step 2: Back genauso (wichtig: damit du im Pair siehst, ob was abgeschnitten ist).<br>
+      <b>So nutzt du es (Kurz-Anleitung)</b><br>
+      1) Step 1: Front laden → Papierformat wählen → “Manuell 4 Ecken” → Papierecken TL→TR→BR→BL → “Entzerren” (oder “Ohne Entzerren”).<br>
+      2) Step 2: Back laden → wieder Papierecken setzen → “Entzerren” (oder “Ohne Entzerren”).<br>
       3) Step 3: Grid setzen (Tap = Linie). Pinch/Drag = Zoom/Pan. Ansicht auf Back umschalten zum Check.<br>
-      4) Step 4: Preview: Knopf # wählen, Front/Back/Pair prüfen.<br>
+      4) Step 4: Preview: Knopf # wählen, Front/Back/Pair prüfen (Tight siehst du hier sofort).<br>
       5) Step 5: ZIP Export.
     </p>
-    <div class="hr"></div>
-<p class="small muted">
-  © 2025 Roland Konrad · Lizenz: siehe LICENSE.txt (Non-Commercial)
-</p>
 
+    <div class="hr"></div>
+    <p class="small muted">
+      © 2025 Roland Konrad · Lizenz: siehe LICENSE.txt (Non-Commercial)
+    </p>
   </div>
 </div>
 
@@ -381,8 +389,6 @@
     </p>
 
     <div class="ctaGrid">
-
-      <!-- PayPal -->
       <div class="payCard">
         <div class="muted"><b>PayPal</b></div>
 
@@ -408,7 +414,6 @@
         </div>
       </div>
 
-      <!-- BTC -->
       <div class="payCard">
         <div class="muted"><b>Bitcoin (BTC)</b></div>
 
@@ -434,7 +439,7 @@
 
         <div class="small muted">“Jetzt zahlen” klappt in vielen Wallets direkt (sonst kopieren).</div>
       </div>
-    </div> <!-- /ctaGrid -->
+    </div>
 
     <div class="hr"></div>
 
@@ -447,11 +452,11 @@
        style="display:inline-flex; align-items:center; justify-content:center; border-radius:12px; padding:12px 14px; border:1px solid var(--b);">
       Klar, ich abonnier direkt!
     </a>
+
     <div class="hr"></div>
-<div class="hr"></div>
-<p class="small muted" style="text-align:center; margin:10px 0 0;">
-  © 2025 Roland Konrad · Non-Commercial · siehe LICENSE.txt
-</p>
+    <p class="small muted" style="text-align:center; margin:10px 0 0;">
+      © 2025 Roland Konrad · Non-Commercial · siehe LICENSE.txt
+    </p>
   </div>
 </div>
 
@@ -459,7 +464,6 @@
 <canvas id="frontWarpCanvas" width="2480" height="3508" hidden></canvas>
 <canvas id="backWarpCanvas" width="2480" height="3508" hidden></canvas>
 
-<!-- libs (nur das, was wir wirklich brauchen) -->
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
@@ -474,7 +478,6 @@
  * Commercial use prohibited.
  */
 
-/* ---- Identity / License Marker ---- */
 const APP_NAME = "ButtonGridTool-Wizard";
 const APP_AUTHOR = "Roland Konrad";
 const APP_YEAR = "2025";
@@ -486,7 +489,6 @@ console.log(
   "color:#666;"
 );
 
-/* ----------------- Utils ----------------- */
 const $ = (id)=>document.getElementById(id);
 const statusEl = $("status");
 function setStatus(s){ statusEl.textContent = "Status: " + s; }
@@ -546,14 +548,13 @@ function toggleWrap(id){
   el.style.display = (el.style.display==="none" || !el.style.display) ? "block" : "none";
 }
 
-/* ----------------- QR (ohne QR-Library, robust gegen CDN/AdBlock) ----------------- */
+/* ----------------- QR ----------------- */
 const PAYPAL_URL = "https://paypal.me/rophko";
 const BTC_ADDR   = "bc1qwr08y9ngmvplpr8tuk4w34rl4pkryur8u4cf5f";
 const BTC_URI    = `bitcoin:${BTC_ADDR}`;
 
 function qrImgUrl(text){
   const data = encodeURIComponent(text);
-  // Image-QR: keine JS-Library nötig.
   return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=2&data=${data}`;
 }
 function setQrImage(imgEl, hintEl, text){
@@ -599,17 +600,23 @@ async function loadImageFileToCanvas(file){
   }
 }
 
-/* ----------------- State ----------------- */
-const A4_W=2480, A4_H=3508;
+/* ----------------- Paper format ----------------- */
+const PAPER = {
+  A4_P: { w:2480, h:3508, label:"A4 hoch" },
+  A4_L: { w:3508, h:2480, label:"A4 quer" },
+  A5_P: { w:1748, h:2480, label:"A5 hoch" },
+  A5_L: { w:2480, h:1748, label:"A5 quer" }
+};
 
+function getPaperKey(){ return $("paperFmt")?.value || "A4_L"; }
+function getPaperDims(){ return PAPER[getPaperKey()] || PAPER.A4_L; }
+
+/* ----------------- State ----------------- */
 const S = {
   cvReady:false,
-
   frontImg:null,
   backImg:null,
-
   pts: { front:[], back:[] },
-
   view: {
     front:{scale:1, ox:0, oy:0},
     back :{scale:1, ox:0, oy:0},
@@ -630,11 +637,20 @@ const S = {
   gridPointers:new Map(),
   gridPinch:null,
   gridPan:null,
-  gridLastTap:{t:0, x:0, y:0},
   gridGestureLockUntil:0,
 
-  cells:[]
+  // FIX: Tap-Handling mit Delay (damit Doppeltipp keine Linie erzeugt)
+  gridTapTimer:null,
+  gridTapPending:null, // {t,x,y}
+
+  cells:[],
+  paperKey:"A4_L"
 };
+
+$("paperFmt").addEventListener("change", ()=>{
+  S.paperKey = getPaperKey();
+  setStatus(`Front-Format: ${getPaperDims().label} (Back übernimmt).`);
+});
 
 /* ----------------- OpenCV init ----------------- */
 window.Module = window.Module || {};
@@ -664,6 +680,8 @@ async function loadSide(e, which){
 
   if(which==="front"){
     S.frontImg = imgCanvas;
+    S.paperKey = getPaperKey();
+
     $("frontState").textContent="geladen";
     $("frontState").className="badge ok";
     $("btnFrontManual").disabled=false;
@@ -678,7 +696,7 @@ async function loadSide(e, which){
 
     hookPhotoCanvas("front");
     renderPhoto("front");
-    setStatus("Front geladen.");
+    setStatus(`Front geladen. Format: ${getPaperDims().label} (wird für Back übernommen).`);
   } else {
     S.backImg = imgCanvas;
     $("backState").textContent="geladen";
@@ -697,8 +715,8 @@ async function loadSide(e, which){
 /* ----------------- Photo: manual corners + zoom/pan ----------------- */
 $("btnFrontManual").addEventListener("click", ()=> startManual("front"));
 $("btnBackManual").addEventListener("click", ()=> startManual("back"));
-$("btnFrontWarp").addEventListener("click", ()=> warpA4("front"));
-$("btnBackWarp").addEventListener("click", ()=> warpA4("back"));
+$("btnFrontWarp").addEventListener("click", ()=> warpPaper("front"));
+$("btnBackWarp").addEventListener("click", ()=> warpPaper("back"));
 $("btnFrontSkipWarp").addEventListener("click", ()=> useRaw("front"));
 $("btnBackSkipWarp").addEventListener("click", ()=> useRaw("back"));
 $("btnFrontResetView").addEventListener("click", ()=>{ S.view.front={scale:1,ox:0,oy:0}; renderPhoto("front"); });
@@ -708,7 +726,7 @@ function startManual(which){
   S.pts[which]=[];
   if(which==="front") $("btnFrontWarp").disabled=true;
   else $("btnBackWarp").disabled=true;
-  setStatus(`${which.toUpperCase()}: 4× tippen (TL→TR→BR→BL).`);
+  setStatus(`${which.toUpperCase()}: 4× tippen (Papierecken TL→TR→BR→BL).`);
   renderPhoto(which);
 }
 
@@ -949,7 +967,7 @@ function useRaw(which){
 
 function canvasToCvSrc(canvasEl){ return cv.imread(canvasEl); }
 
-async function warpA4(which){
+async function warpPaper(which){
   if(!S.cvReady){
     alert("OpenCV.js lädt noch. Bitte kurz warten und nochmal.");
     return;
@@ -961,7 +979,8 @@ async function warpA4(which){
     return;
   }
 
-  setStatus(`${which.toUpperCase()}: Entzerren läuft…`);
+  const dims = PAPER[S.paperKey] || PAPER.A4_L;
+  setStatus(`${which.toUpperCase()}: Entzerren läuft… (${dims.label})`);
 
   try{
     const src = canvasToCvSrc(img);
@@ -973,14 +992,22 @@ async function warpA4(which){
       pts[3].x, pts[3].y
     ]);
     const dstTri = cv.matFromArray(4,1,cv.CV_32FC2,[
-      0,0,  A4_W,0,  A4_W,A4_H,  0,A4_H
+      0,0,  dims.w,0,  dims.w,dims.h,  0,dims.h
     ]);
 
     const M = cv.getPerspectiveTransform(srcTri, dstTri);
     const dst = new cv.Mat();
-    cv.warpPerspective(src, dst, M, new cv.Size(A4_W,A4_H), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255,255,255,255));
+    cv.warpPerspective(
+      src, dst, M,
+      new cv.Size(dims.w,dims.h),
+      cv.INTER_LINEAR,
+      cv.BORDER_CONSTANT,
+      new cv.Scalar(255,255,255,255)
+    );
 
     const outCanvas = which==="front" ? $("frontWarpCanvas") : $("backWarpCanvas");
+    outCanvas.width = dims.w;
+    outCanvas.height = dims.h;
     cv.imshow(outCanvas, dst);
 
     src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
@@ -988,16 +1015,16 @@ async function warpA4(which){
     S.work.mode="warp";
     if(which==="front"){
       S.work.front = outCanvas;
-      $("frontState").textContent="entzerrt";
+      $("frontState").textContent=`entzerrt (${dims.label})`;
       $("frontState").className="badge ok";
     } else {
       S.work.back = outCanvas;
-      $("backState").textContent="entzerrt";
+      $("backState").textContent=`entzerrt (${dims.label})`;
       $("backState").className="badge ok";
     }
 
     enableGridUI();
-    setStatus(`${which.toUpperCase()}: entzerrt.`);
+    setStatus(`${which.toUpperCase()}: entzerrt (${dims.label}).`);
   }catch(err){
     console.error(err);
     alert("Entzerren fehlgeschlagen (siehe Konsole).");
@@ -1012,6 +1039,9 @@ $("btnGridClear").addEventListener("click", ()=>{
   S.xRel=[]; S.yRel=[];
   S.disabledCells.clear();
   S.undo=[];
+  // pending tap cleanup
+  if(S.gridTapTimer){ clearTimeout(S.gridTapTimer); S.gridTapTimer=null; }
+  S.gridTapPending=null;
   renderGrid();
   setStatus("Alles gelöscht.");
 });
@@ -1038,7 +1068,8 @@ $("btnGridSave").addEventListener("click", ()=>{
     version:2,
     x_rel: [...S.xRel].sort((a,b)=>a-b),
     y_rel: [...S.yRel].sort((a,b)=>a-b),
-    disabled: [...S.disabledCells].sort((a,b)=>a-b)
+    disabled: [...S.disabledCells].sort((a,b)=>a-b),
+    paper: S.paperKey
   };
   downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),"grid.json");
 });
@@ -1051,6 +1082,13 @@ $("gridLoad").addEventListener("change", async (e)=>{
   S.yRel = (j.y_rel||[]).map(Number);
   S.disabledCells = new Set(j.disabled||[]);
   S.undo=[];
+
+  if(typeof j.paper === "string" && PAPER[j.paper]) S.paperKey = j.paper;
+
+  // pending tap cleanup
+  if(S.gridTapTimer){ clearTimeout(S.gridTapTimer); S.gridTapTimer=null; }
+  S.gridTapPending=null;
+
   renderGrid();
   setStatus("Grid geladen.");
 });
@@ -1124,7 +1162,6 @@ function renderGrid(){
   const xs=[0, ...S.xRel.map(r=>relXtoPx(work,r)).sort((a,b)=>a-b), work.width];
   const ys=[0, ...S.yRel.map(r=>relYtoPx(work,r)).sort((a,b)=>a-b), work.height];
 
-  // disabled overlays
   ctx.save();
   ctx.fillStyle="rgba(255,0,0,0.18)";
   let idx=1;
@@ -1140,7 +1177,6 @@ function renderGrid(){
   }
   ctx.restore();
 
-  // lines
   ctx.save();
   ctx.lineWidth=2;
   ctx.strokeStyle="rgba(0,120,255,0.92)";
@@ -1154,7 +1190,6 @@ function renderGrid(){
   }
   ctx.restore();
 
-  // numbers thick
   ctx.save();
   ctx.font="78px -apple-system";
   ctx.lineWidth=12;
@@ -1228,12 +1263,16 @@ function gridPointerUp(canvas, e){
 
   if(Date.now() < S.gridGestureLockUntil) return;
 
-  const now=Date.now();
-  const dt = now - S.gridLastTap.t;
-  const dd = Math.hypot(p.x - S.gridLastTap.x, p.y - S.gridLastTap.y);
-  S.gridLastTap = {t:now, x:p.x, y:p.y};
+  const now = Date.now();
+  const pending = S.gridTapPending;
 
-  if(dt < 320 && dd < 25){
+  const isDouble = pending && ((now - pending.t) < 320) && (Math.hypot(p.x-pending.x, p.y-pending.y) < 25);
+
+  if(isDouble){
+    // cancel pending single-tap action (line)
+    if(S.gridTapTimer){ clearTimeout(S.gridTapTimer); S.gridTapTimer=null; }
+    S.gridTapPending = null;
+
     const idx = hitTestCell(p.x,p.y);
     if(idx!==null){
       const wasDisabled = S.disabledCells.has(idx);
@@ -1246,7 +1285,18 @@ function gridPointerUp(canvas, e){
     return;
   }
 
-  addLineFromTap(p.x,p.y);
+  // schedule single tap (line) AFTER double-tap window
+  if(S.gridTapTimer){ clearTimeout(S.gridTapTimer); S.gridTapTimer=null; }
+  S.gridTapPending = { t: now, x: p.x, y: p.y };
+
+  S.gridTapTimer = setTimeout(()=>{
+    // still pending -> it was a single tap
+    if(!S.gridTapPending) return;
+    const {x,y} = S.gridTapPending;
+    S.gridTapPending = null;
+    S.gridTapTimer = null;
+    addLineFromTap(x,y);
+  }, 320);
 }
 
 function gridPinchStart(){
@@ -1334,6 +1384,7 @@ function cropCanvas(srcCanvas, cell){
   return c;
 }
 
+/* Tight via Bounding-Box */
 function tightOrFull(cellCanvas){
   if(!$("tight").checked) return cellCanvas;
 
@@ -1341,35 +1392,45 @@ function tightOrFull(cellCanvas){
   const minRatio = parseFloat($("minRatio").value||"0.005");
   const keep = parseFloat($("keep").value||"0.05");
 
-  const w=cellCanvas.width, h=cellCanvas.height;
-  const ctx=cellCanvas.getContext("2d",{willReadFrequently:true});
-  const img=ctx.getImageData(0,0,w,h);
+  const w = cellCanvas.width, h = cellCanvas.height;
+  const ctx = cellCanvas.getContext("2d",{willReadFrequently:true});
+  const img = ctx.getImageData(0,0,w,h);
+  const d = img.data;
 
-  let minX=w, minY=h, maxX=0, maxY=0, count=0;
-  const thr=245;
+  let minX=w, minY=h, maxX=-1, maxY=-1, fg=0;
+
   for(let y=0;y<h;y++){
     for(let x=0;x<w;x++){
       const i=(y*w+x)*4;
-      const r=img.data[i], g=img.data[i+1], b=img.data[i+2];
-      if(r<thr || g<thr || b<thr){
-        count++;
-        if(x<minX) minX=x; if(y<minY) minY=y;
-        if(x>maxX) maxX=x; if(y>maxY) maxY=y;
+      const r=d[i], g=d[i+1], b=d[i+2];
+      const bright=(r+g+b)/3;
+      const chroma=Math.max(r,g,b) - Math.min(r,g,b);
+
+      const isBg = bright > 235 && chroma < 18;
+      if(!isBg){
+        fg++;
+        if(x<minX) minX=x;
+        if(y<minY) minY=y;
+        if(x>maxX) maxX=x;
+        if(y>maxY) maxY=y;
       }
     }
   }
-  const ratio=count/(w*h);
-  if(ratio<minRatio) return cellCanvas;
 
-  minX=clamp(minX-pad,0,w-1); minY=clamp(minY-pad,0,h-1);
-  maxX=clamp(maxX+pad,0,w-1); maxY=clamp(maxY+pad,0,h-1);
+  if(maxX < 0) return cellCanvas;
+  if(fg/(w*h) < minRatio) return cellCanvas;
 
-  const cw=maxX-minX+1, ch=maxY-minY+1;
-  if((cw/w)<keep || (ch/h)<keep) return cellCanvas;
+  minX=clamp(minX-pad,0,w-1);
+  minY=clamp(minY-pad,0,h-1);
+  maxX=clamp(maxX+pad,0,w-1);
+  maxY=clamp(maxY+pad,0,h-1);
+
+  const bw=maxX-minX+1, bh=maxY-minY+1;
+  if((bw*bh)/(w*h) > (1-keep)) return cellCanvas;
 
   const out=document.createElement("canvas");
-  out.width=cw; out.height=ch;
-  out.getContext("2d").drawImage(cellCanvas, minX,minY,cw,ch, 0,0,cw,ch);
+  out.width=bw; out.height=bh;
+  out.getContext("2d").drawImage(cellCanvas, minX,minY,bw,bh, 0,0,bw,bh);
   return out;
 }
 
@@ -1417,9 +1478,7 @@ $("btnPreview").addEventListener("click", ()=>{
   }
 });
 
-/* Export */
 async function canvasToBlob(c, fmt, q){
-  // fmt: "png" | "jpg"
   return await new Promise(res=>{
     if(fmt==="png") c.toBlob(res,"image/png");
     else c.toBlob(res,"image/jpeg", q);
@@ -1454,7 +1513,6 @@ $("btnExport").addEventListener("click", async ()=>{
 
     if(doPairs){
       const pair = buildPairCanvas(f,b);
-      // Pairs immer JPG (kleiner, universell)
       P.file(`pair_${pad3(cell.idx)}.jpg`, await canvasToBlob(pair, "jpg", q));
     }
 
