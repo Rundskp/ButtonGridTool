@@ -561,7 +561,54 @@
 
 <!-- libs -->
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+<script>
+  // MUST exist before opencv.js loads
+  window.__cvReady = false;
+
+  window.Module = window.Module || {};
+  const _prevCvInit = window.Module.onRuntimeInitialized;
+
+  window.Module.onRuntimeInitialized = () => {
+    // chain anything that may already exist
+    try { _prevCvInit && _prevCvInit(); } catch (e) { console.warn(e); }
+
+    window.__cvReady = true;
+
+    // update UI if available
+    const st = document.getElementById("status");
+    if (st) st.textContent = "Status: bereit.";
+
+    // update app state if it exists already
+    if (window.S) window.S.cvReady = true;
+
+    console.log("OpenCV.js ready");
+  };
+</script>
+
+<script id="opencvjs" defer src="https://docs.opencv.org/4.x/opencv.js"></script>
+
+<script>
+  // robust error handling
+  (function(){
+    const s = document.getElementById("opencvjs");
+    if(!s) return;
+
+    s.addEventListener("error", () => {
+      alert("OpenCV.js konnte nicht geladen werden (Netz/Blocker/CSP).");
+      console.error("OpenCV.js failed:", s.src);
+      const st = document.getElementById("status");
+      if (st) st.textContent = "Status: OpenCV.js konnte nicht geladen werden.";
+    });
+
+    setTimeout(() => {
+      if(!window.__cvReady){
+        console.warn("OpenCV.js still not ready after 10s");
+      }
+    }, 10000);
+  })();
+</script>
+
+
 <script type="module">
   import { isHeic, heicTo } from "https://esm.sh/heic-to@1.3.0";
   window.__heicTo = { isHeic, heicTo };
@@ -756,7 +803,7 @@ const PAPER = {
 function paperByKey(key){ return PAPER[key] || PAPER.A4_P; }
 
 const S = {
-  cvReady:false,
+  cvReady: (window.__cvReady === true),
   warp:{ formatKey:"A4_P" },
   frontImg:null,
   backImg:null,
@@ -786,12 +833,7 @@ const S = {
   cells:[]
 };
 
-/* ----------------- OpenCV init ----------------- */
-window.Module = window.Module || {};
-Module.onRuntimeInitialized = () => {
-  S.cvReady = true;
-  setStatus("bereit.");
-};
+
 
 /* ----------------- UI: file pickers ----------------- */
 $("btnFrontCam").addEventListener("click", ()=> $("frontCam").click());
@@ -1163,9 +1205,14 @@ function canvasToCvSrc(canvasEl){ return cv.imread(canvasEl); }
 
 async function warpPaper(which){
   if(!S.cvReady){
-    alert("OpenCV.js lädt noch. Bitte kurz warten und nochmal.");
-    return;
+  if(window.__cvReady === false){
+    alert("OpenCV.js ist noch nicht bereit oder konnte nicht geladen werden. (Status unten prüfen)");
+  }else{
+    alert("OpenCV.js ist nicht bereit.");
   }
+  return;
+}
+
   const img = which==="front" ? S.frontImg : S.backImg;
   const pts = S.pts[which];
   if(!img || pts.length!==4){
