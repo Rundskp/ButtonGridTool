@@ -9,33 +9,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ButtonGridTool-Wizard</title>
   <style>
-    :root { --pad: 12px; --gap: 10px; --b:#2b6cff; --hdrH: 56px; }
+    :root { --pad: 12px; --gap: 10px; --b:#2b6cff; }
     * { box-sizing: border-box; }
     html, body { width:100%; max-width:100%; overflow-x:hidden; }
-    body { font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; margin:0; background:#f5f6f8; }
+    body { font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; margin:0; background:#f5f6f8; padding-top:72px; }
 
-    /* FIX: Header wirklich immer sichtbar */
-    header{
+    header {
       background:#fff; border-bottom:1px solid #ddd; padding:10px 12px;
-      position:fixed; top:0; left:0; right:0; z-index:1000;
+      position:fixed; top:0; left:0; right:0; z-index:50;
       display:flex; align-items:center; justify-content:space-between; gap:10px;
-      width:100%;
+      max-width:100%;
     }
     header h1 { font-size:16px; margin:0; }
     .hdrBtns{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 
-    button, select, input[type="number"], input[type="range"]{
+    button, select, input[type="number"], input[type="range"] {
       font-size:16px; padding:10px 12px; border-radius:10px; border:1px solid #bbb; background:#fff;
       max-width:100%;
     }
     button.primary{ background:var(--b); color:#fff; border-color:var(--b); }
     button.danger{ background:#ff3b30; color:#fff; border-color:#ff3b30; }
     button:disabled{ opacity:.5; }
-    a{ text-decoration:none; }
+    a { text-decoration:none; }
 
-    /* FIX: Platz unter fixed header */
-    main{ padding:calc(var(--pad) + var(--hdrH)) var(--pad) var(--pad); max-width:980px; margin:0 auto; width:100%; }
-
+    main{ padding:var(--pad); padding-top:calc(var(--pad) + 64px); max-width:980px; margin:0 auto; width:100%; }
     .card{ background:#fff; border:1px solid #ddd; border-radius:10px; padding:12px; margin:10px 0; max-width:100%; }
     .row{ display:flex; flex-wrap:wrap; gap:var(--gap); align-items:center; max-width:100%; }
     .pill{ display:inline-flex; gap:8px; align-items:center; padding:8px 10px; border:1px solid #ddd; border-radius:999px; max-width:100%; }
@@ -54,7 +51,7 @@
     /* modal */
     .modalBackdrop{
       position:fixed; inset:0; background:rgba(0,0,0,.35);
-      display:none; align-items:flex-end; justify-content:center; z-index:9999;
+      display:none; align-items:flex-end; justify-content:center; z-index:999;
       padding:12px;
     }
     .modal{
@@ -73,6 +70,7 @@
       max-width:100%;
       width:100%;
     }
+    /* iOS / Flex overflow fix */
     .payCard, .pill, .row, .modal { min-width: 0; }
 
     .copyBox{
@@ -100,7 +98,9 @@
       min-height:64px;
     }
     .payBtnBig:active{ transform: scale(.99); }
-    .paypalImg{ width:160px; max-width:80%; height:auto; display:block; }
+    .paypalImg{
+      width:160px; max-width:80%; height:auto; display:block;
+    }
 
     .qrImg{
       width:220px; height:220px;
@@ -135,16 +135,16 @@
       <button id="btnFrontPick">📁 Datei benutzen</button>
 
       <span class="pill"><b>Format</b>
-        <select id="paperFmt">
-          <option value="A4_L" selected>A4 quer</option>
-          <option value="A4_P">A4 hoch</option>
+        <select id="warpFormat">
+          <option value="A4_L">A4 quer</option>
+          <option value="A4_P" selected>A4 hoch</option>
           <option value="A5_L">A5 quer</option>
           <option value="A5_P">A5 hoch</option>
         </select>
       </span>
 
       <button id="btnFrontManual" disabled>Manuell 4 Ecken</button>
-      <button id="btnFrontWarp" class="primary" disabled>Entzerren</button>
+      <button id="btnFrontWarp" class="primary" disabled>Entzerren (A4 hoch)</button>
       <button id="btnFrontSkipWarp" disabled>Ohne Entzerren weiter</button>
 
       <button id="btnFrontResetView" class="toolbtn" disabled>Reset View</button>
@@ -153,8 +153,7 @@
     <canvas id="frontCanvas" width="1200" height="900"></canvas>
 
     <p class="small">
-      <b>Wichtig:</b> Die 4 Punkte sind die <b>Papiereckpunkte</b> (nicht die Objekt-Ecken).<br>
-      <b>Reihenfolge:</b> Tippe 4×: <b>TL → TR → BR → BL</b>. Danach Punkte ziehen. <br>
+      <b>Ecken setzen:</b> Tippe 4× die <b>Papier-Ecken</b>: <b>TL → TR → BR → BL</b>. Danach Punkte ziehen. <br>
       <b>Zoom/Pan:</b> Pinch-Zoom + ziehen. Punkte bleiben stabil. Dann <b>Entzerren</b> (oder <b>Ohne Entzerren</b>).
     </p>
   </div>
@@ -182,7 +181,7 @@
 
     <canvas id="backCanvas" width="1200" height="900"></canvas>
     <p class="small muted">
-      Back übernimmt automatisch das Format von Front. Punkte sind wieder die <b>Papiereckpunkte</b>.
+      Tipp: Wenn du ohne Entzerren arbeitest, mach Front/Back möglichst gleich: gleiche Entfernung, gleicher Winkel.
     </p>
   </div>
 
@@ -222,9 +221,9 @@
     <canvas id="gridCanvas" width="1200" height="900"></canvas>
 
     <p class="small">
-      <b>Linien:</b> Tap = Linie setzen · <b>Pinch/Drag = Zoom/Pan</b> (setzt keine Linien)<br>
-      <b>Zellen:</b> <b>Doppeltipp</b> auf eine Zelle = aus/ein (aus = rot, wird nicht exportiert)<br>
-      <b>Back check:</b> Umschalten auf <b>Back</b> und schauen, ob etwas abgeschnitten wäre.
+      <b>Linien:</b> Tap = Linie setzen · <b>Pinch/Drag = Zoom/Pan</b> (setzt keine Linien) <br>
+      <b>Zellen:</b> <b>Doppeltipp</b> auf eine Zelle = aus/ein (aus = rot, wird nicht exportiert) <br>
+      <b>Back check:</b> Umschalten auf <b>Back</b> und schauen, ob was abgeschnitten wäre.
     </p>
   </div>
 
@@ -277,62 +276,154 @@
 </main>
 
 <!-- SETTINGS MODAL -->
-<div id="settingsBackdrop" class="modalBackdrop">
+<div id="settingsBackdrop" class="modalBackdrop" style="display:none;">
   <div class="modal">
+
     <div class="modalHeader">
       <h2>⚙️ Einstellungen</h2>
       <button id="btnSettingsClose">Schließen</button>
     </div>
-    <p class="muted">Export/Qualität/Tight/Pad.</p>
+
+    <p class="muted">Ausgabe · Zellzuschnitt · Objekterkennung · Stabilität</p>
     <div class="hr"></div>
 
     <div class="row">
-      <span class="pill"><b>Format</b>
+      <button id="btnSettingsSave">⚙️ Einstellungen speichern</button>
+      <input id="settingsLoad" type="file" accept="application/json" hidden />
+      <button id="btnSettingsLoad">⚙️ Einstellungen laden</button>
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- AUSGABE -->
+    <p class="small"><b>Ausgabeformat</b></p>
+    <div class="row">
+      <span class="pill">
+        <b>Dateiformat</b>
         <select id="fmt">
-          <option value="jpg" selected>JPG</option>
-          <option value="png">PNG</option>
+          <option value="jpg" selected>JPG (kleiner)</option>
+          <option value="png">PNG (verlustfrei)</option>
         </select>
       </span>
 
-      <span class="pill"><b>JPG Q</b>
-        <input id="jpgq" type="range" min="50" max="100" value="92" />
+      <span class="pill">
+        <b>JPG-Qualität</b>
+        <input id="jpgq" type="range" min="50" max="100" value="92">
         <span id="jpgqLabel">92</span>
-      </span>
-
-      <span class="pill"><b>Tight</b>
-        <input id="tight" type="checkbox" checked />
       </span>
     </div>
 
-    <div class="row" style="margin-top:10px;">
-      <span class="pill"><b>Tight-Pad</b>
-        <input id="tightPad" type="number" value="12" min="0" max="200" step="1" style="width:90px;">
-      </span>
+    <div class="hr"></div>
 
-      <span class="pill"><b>Min-Ratio</b>
-        <input id="minRatio" type="number" value="0.005" min="0.0001" max="0.5" step="0.001" style="width:110px;">
-      </span>
-
-      <span class="pill"><b>Safety Keep</b>
-        <input id="keep" type="number" value="0.05" min="0.0" max="1.0" step="0.01" style="width:90px;">
-      </span>
-
-      <span class="pill"><b>Grid-Pad</b>
+    <!-- ZELLZUSCHNITT -->
+    <p class="small"><b>Zell-Zuschnitt (vor Objekterkennung)</b></p>
+    <div class="row">
+      <span class="pill">
+        <b>Rand innerhalb jeder Zelle (Pixel)</b>
         <input id="gridPad" type="number" value="15" min="0" max="300" step="1" style="width:90px;">
       </span>
     </div>
 
-    <p class="small" style="margin-top:10px;">
-      <b>Format</b>: PNG = verlustfrei, JPG = kleiner.<br>
-      <b>JPG Q</b>: 50–100, höher = bessere Qualität, größere Dateien.<br>
-      <b>Tight</b>: versucht pro Zelle den Button enger zu croppen (Papier weg).<br>
-      <b>Tight-Pad</b>: zusätzlicher Rand um den Button nach dem Tight-Crop.<br>
-      <b>Min-Ratio</b>: wie viel “nicht-weiß” mindestens da sein muss, sonst kein Tight-Crop (Schutz gegen Fehl-Crops).<br>
-      <b>Safety Keep</b>: verhindert, dass Tight-Crop zu aggressiv wird (sonst fallback auf ganze Zelle).<br>
-      <b>Grid-Pad</b>: schneidet in jeder Zelle innen rundherum weg (gegen Grid-Linien/Rand).
+    <div class="hr"></div>
+
+    <!-- OBJEKT -->
+    <p class="small"><b>Objekt automatisch zuschneiden</b></p>
+    <div class="row">
+      <span class="pill">
+        <b>Automatisch zuschneiden</b>
+        <input id="tight" type="checkbox" checked>
+      </span>
+
+      <span class="pill">
+        <b>Sicherheitsrand um Objekt (Pixel)</b>
+        <input id="tightPad" type="number" value="12" min="0" max="200" step="1" style="width:90px;">
+      </span>
+
+      <span class="pill">
+        <b>Min. Objektanteil (Notfall)</b>
+        <input id="minRatio" type="number" value="0.005" min="0.0001" max="0.5" step="0.0005" style="width:110px;">
+      </span>
+
+      <span class="pill">
+        <b>Min. Crop-Größe (Notfall)</b>
+        <input id="keep" type="number" value="0.05" min="0.01" max="0.9" step="0.01" style="width:110px;">
+      </span>
+
+      <span class="pill">
+        <b>Debug-Overlay anzeigen</b>
+        <input id="debugOverlay" type="checkbox">
+      </span>
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- STABILITÄT -->
+    <p class="small"><b>Stabilität der Erkennung</b></p>
+    <div class="row">
+      <span class="pill">
+        <b>Kante muss mehrmals passen</b>
+        <input id="edgeRun" type="number" value="2" min="1" max="8" step="1" style="width:90px;">
+      </span>
+
+      <span class="pill">
+        <b>Startabstand vom Zellrand (Pixel)</b>
+        <input id="edgeOff" type="number" value="6" min="0" max="80" step="1" style="width:90px;">
+      </span>
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- FRONT -->
+    <p class="small"><b>Vorderseite – Objektrand erkennen</b></p>
+    <div class="row">
+      <span class="pill"><b>Oben – Empfindlichkeit</b><input id="fThrT" type="number" value="35" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Oben – Mindestanteil</b><input id="fFillT" type="number" value="0.02" step="0.005" style="width:110px;"></span>
+
+      <span class="pill"><b>Rechts – Empfindlichkeit</b><input id="fThrR" type="number" value="35" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Rechts – Mindestanteil</b><input id="fFillR" type="number" value="0.02" step="0.005" style="width:110px;"></span>
+
+      <span class="pill"><b>Unten – Empfindlichkeit</b><input id="fThrB" type="number" value="35" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Unten – Mindestanteil</b><input id="fFillB" type="number" value="0.02" step="0.005" style="width:110px;"></span>
+
+      <span class="pill"><b>Links – Empfindlichkeit</b><input id="fThrL" type="number" value="35" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Links – Mindestanteil</b><input id="fFillL" type="number" value="0.02" step="0.005" style="width:110px;"></span>
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- BACK -->
+    <p class="small"><b>Rückseite – Objektrand erkennen (Schatten!)</b></p>
+    <div class="row">
+      <span class="pill"><b>Oben – Empfindlichkeit</b><input id="bThrT" type="number" value="28" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Oben – Mindestanteil</b><input id="bFillT" type="number" value="0.015" step="0.005" style="width:110px;"></span>
+
+      <span class="pill"><b>Rechts – Empfindlichkeit</b><input id="bThrR" type="number" value="28" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Rechts – Mindestanteil</b><input id="bFillR" type="number" value="0.015" step="0.005" style="width:110px;"></span>
+
+      <span class="pill"><b>Unten – Empfindlichkeit</b><input id="bThrB" type="number" value="22" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Unten – Mindestanteil</b><input id="bFillB" type="number" value="0.012" step="0.005" style="width:110px;"></span>
+
+      <span class="pill"><b>Links – Empfindlichkeit</b><input id="bThrL" type="number" value="28" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Links – Mindestanteil</b><input id="bFillL" type="number" value="0.015" step="0.005" style="width:110px;"></span>
+    </div>
+
+    <div class="hr"></div>
+
+    <p class="small">
+      <b>Legende:</b><br>
+      <b>Rand innerhalb jeder Zelle:</b> entfernt Gridlinien & Randartefakte.<br>
+      <b>Automatisch zuschneiden:</b> erkennt das Objekt und entfernt Hintergrund.<br>
+      <b>Sicherheitsrand:</b> zusätzlicher Abstand um das Objekt.<br>
+      <b>Empfindlichkeit:</b> nötiger Kontrast zwischen Objekt & Papier (höher = vorsichtiger).<br>
+      <b>Mindestanteil:</b> wie viel Objekt in einer Zeile/Spalte sein muss, damit dort ein Rand erkannt wird.<br>
+      <b>Kante muss mehrmals passen:</b> schützt vor Staub & Rauschen.<br>
+      <b>Startabstand:</b> verhindert Fehldetektion direkt am Zellrand.<br>
+      <b>Debug-Overlay:</b> grün = erkannte Objektkante, rot = finaler Zuschnitt.
     </p>
+
   </div>
 </div>
+<!-- /SETTINGS MODAL (WICHTIG: hier waren bei dir die Schließ-Tags kaputt!) -->
 
 <!-- HELP MODAL -->
 <div id="helpBackdrop" class="modalBackdrop">
@@ -352,22 +443,23 @@
     </p>
 
     <p class="small">
-      <b>Wichtig (Entzerren richtig):</b><br>
-      • Wähle in Step 1 zuerst das <b>Papierformat</b> (A4/A5, quer/hoch).<br>
-      • Die 4 Punkte sind die <b>Ecken des Papiers</b> (nicht die Ecken der Objekte).<br>
-      • Tippe/Setze die 4 Papierecken in der Reihenfolge: <b>TL → TR → BR → BL</b>.<br>
-      • Back übernimmt automatisch das Format von Front.
+      <b>Was kann es?</b><br>
+      • Manuell 4 Ecken setzen und auf A4/A5 (hoch/quer) perspektivisch entzerren (OpenCV).<br>
+      • Oder ohne Entzerren weiterarbeiten (wenn Foto sauber/gleichmäßig ist).<br>
+      • Grid-Linien setzen, Zellen per Doppeltipp deaktivieren (rot).<br>
+      • Vorschau für Front/Back/Pair, dann Export als ZIP.
     </p>
+
+    <div class="hr"></div>
 
     <p class="small">
-      <b>So nutzt du es (Kurz-Anleitung)</b><br>
-      1) Step 1: Front laden → Papierformat wählen → “Manuell 4 Ecken” → Papierecken TL→TR→BR→BL → “Entzerren” (oder “Ohne Entzerren”).<br>
-      2) Step 2: Back laden → wieder Papierecken setzen → “Entzerren” (oder “Ohne Entzerren”).<br>
+      <b>So nutzt du es korrekt (Kurz-Anleitung)</b><br>
+      1) Step 1: Front laden → <b>Papierformat wählen</b> (A4/A5, Hoch/Quer) → “Manuell 4 Ecken” → <b>gemeint sind die 4 Papier-Ecken</b> → TL→TR→BR→BL tippen → Punkte feinziehen → “Entzerren” (oder “Ohne Entzerren”).<br>
+      2) Step 2: Back genauso (wichtig: damit du im Pair siehst, ob was abgeschnitten ist).<br>
       3) Step 3: Grid setzen (Tap = Linie). Pinch/Drag = Zoom/Pan. Ansicht auf Back umschalten zum Check.<br>
-      4) Step 4: Preview: Knopf # wählen, Front/Back/Pair prüfen (Tight siehst du hier sofort).<br>
+      4) Step 4: Preview: Knopf # wählen, Front/Back/Pair prüfen.<br>
       5) Step 5: ZIP Export.
     </p>
-
     <div class="hr"></div>
     <p class="small muted">
       © 2025 Roland Konrad · Lizenz: siehe LICENSE.txt (Non-Commercial)
@@ -389,6 +481,8 @@
     </p>
 
     <div class="ctaGrid">
+
+      <!-- PayPal -->
       <div class="payCard">
         <div class="muted"><b>PayPal</b></div>
 
@@ -414,6 +508,7 @@
         </div>
       </div>
 
+      <!-- BTC -->
       <div class="payCard">
         <div class="muted"><b>Bitcoin (BTC)</b></div>
 
@@ -452,8 +547,8 @@
        style="display:inline-flex; align-items:center; justify-content:center; border-radius:12px; padding:12px 14px; border:1px solid var(--b);">
       Klar, ich abonnier direkt!
     </a>
-
     <div class="hr"></div>
+
     <p class="small muted" style="text-align:center; margin:10px 0 0;">
       © 2025 Roland Konrad · Non-Commercial · siehe LICENSE.txt
     </p>
@@ -464,20 +559,17 @@
 <canvas id="frontWarpCanvas" width="2480" height="3508" hidden></canvas>
 <canvas id="backWarpCanvas" width="2480" height="3508" hidden></canvas>
 
+<!-- libs -->
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+<script type="module">
+  import { isHeic, heicTo } from "https://esm.sh/heic-to@1.3.0";
+  window.__heicTo = { isHeic, heicTo };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 
 <script>
-/*!
- * ButtonGridTool-Wizard
- * © 2025 Roland Konrad
- *
- * License: see LICENSE.txt in this repository.
- * Non-commercial use allowed.
- * Unmodified redistribution permitted.
- * Commercial use prohibited.
- */
-
+/* ---- Identity / License Marker ---- */
 const APP_NAME = "ButtonGridTool-Wizard";
 const APP_AUTHOR = "Roland Konrad";
 const APP_YEAR = "2025";
@@ -489,6 +581,7 @@ console.log(
   "color:#666;"
 );
 
+/* ----------------- Utils ----------------- */
 const $ = (id)=>document.getElementById(id);
 const statusEl = $("status");
 function setStatus(s){ statusEl.textContent = "Status: " + s; }
@@ -528,20 +621,28 @@ function localPoint(canvas, e){
 }
 
 /* ----------------- Modals ----------------- */
-function openModal(backdropId){ $(backdropId).style.display="flex"; }
-function closeModal(backdropId){ $(backdropId).style.display="none"; }
+function openModal(backdropId){
+  const el = $(backdropId);
+  if(el) el.style.display = "flex";
+}
+function closeModal(backdropId){
+  const el = $(backdropId);
+  if(el) el.style.display = "none";
+}
 
-$("btnGear").addEventListener("click", ()=> openModal("settingsBackdrop"));
-$("btnSettingsClose").addEventListener("click", ()=> closeModal("settingsBackdrop"));
-$("settingsBackdrop").addEventListener("click", (e)=>{ if(e.target===$("settingsBackdrop")) closeModal("settingsBackdrop"); });
+document.addEventListener("DOMContentLoaded", ()=>{
+  $("btnGear")?.addEventListener("click", ()=> openModal("settingsBackdrop"));
+  $("btnSettingsClose")?.addEventListener("click", ()=> closeModal("settingsBackdrop"));
+  $("settingsBackdrop")?.addEventListener("click", (e)=>{ if(e.target === $("settingsBackdrop")) closeModal("settingsBackdrop"); });
 
-$("btnDonate").addEventListener("click", ()=> openModal("donateBackdrop"));
-$("btnDonateClose").addEventListener("click", ()=> closeModal("donateBackdrop"));
-$("donateBackdrop").addEventListener("click", (e)=>{ if(e.target===$("donateBackdrop")) closeModal("donateBackdrop"); });
+  $("btnDonate")?.addEventListener("click", ()=> openModal("donateBackdrop"));
+  $("btnDonateClose")?.addEventListener("click", ()=> closeModal("donateBackdrop"));
+  $("donateBackdrop")?.addEventListener("click", (e)=>{ if(e.target === $("donateBackdrop")) closeModal("donateBackdrop"); });
 
-$("btnHelp").addEventListener("click", ()=> openModal("helpBackdrop"));
-$("btnHelpClose").addEventListener("click", ()=> closeModal("helpBackdrop"));
-$("helpBackdrop").addEventListener("click", (e)=>{ if(e.target===$("helpBackdrop")) closeModal("helpBackdrop"); });
+  $("btnHelp")?.addEventListener("click", ()=> openModal("helpBackdrop"));
+  $("btnHelpClose")?.addEventListener("click", ()=> closeModal("helpBackdrop"));
+  $("helpBackdrop")?.addEventListener("click", (e)=>{ if(e.target === $("helpBackdrop")) closeModal("helpBackdrop"); });
+});
 
 function toggleWrap(id){
   const el = $(id);
@@ -568,14 +669,12 @@ $("btnPaypalQR").addEventListener("click", ()=>{
     setQrImage($("paypalQrImg"), $("paypalQrHint"), PAYPAL_URL);
   }
 });
-
 $("btnBtcQR").addEventListener("click", ()=>{
   toggleWrap("btcQrWrap");
   if($("btcQrWrap").style.display==="block"){
     setQrImage($("btcQrImg"), $("btcQrHint"), BTC_URI);
   }
 });
-
 $("btnCopyBTC").addEventListener("click", ()=> copyText($("btcText").textContent.trim()));
 
 /* Settings */
@@ -584,7 +683,54 @@ $("jpgqLabel").textContent = $("jpgq").value;
 
 /* robust iOS image load */
 async function loadImageFileToCanvas(file){
-  const url = URL.createObjectURL(file);
+  const name = (file?.name || "").toLowerCase();
+  const type = (file?.type || "").toLowerCase();
+  const looksHeic = name.endsWith(".heic") || name.endsWith(".heif") || type.includes("heic") || type.includes("heif");
+
+  let blob = file;
+
+  if(looksHeic){
+    try{
+      if(window.__heicTo?.isHeic && window.__heicTo?.heicTo){
+        const ok = await window.__heicTo.isHeic(file);
+        if(ok){
+          const out = await window.__heicTo.heicTo({ blob:file, type:"image/jpeg", quality:0.92 });
+          blob = out;
+        }
+      }
+    }catch(err){
+      console.warn("HEIC->JPG (heic-to) failed, trying heic2any fallback", err);
+    }
+
+    if(blob === file){
+      try{
+        if(typeof window.heic2any === "function"){
+          let out = await window.heic2any({ blob:file, toType:"image/jpeg", quality:0.92 });
+          if(Array.isArray(out)) out = out[0];
+          if(out instanceof Blob) blob = out;
+        }
+      }catch(err){
+        console.warn("HEIC->JPG (heic2any) failed", err);
+      }
+    }
+
+    if(blob === file){
+      try{
+        if(window.__heicTo?.heicTo){
+          const out = await window.__heicTo.heicTo({ blob:file, type:"image/png" });
+          blob = out;
+        }
+      }catch(err){
+        console.error("HEIC->PNG failed", err);
+      }
+    }
+
+    if(blob === file){
+      throw new Error("Konnte diese HEIC/HEIF-Datei nicht decodieren.");
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
   try{
     const img = new Image();
     img.decoding = "async";
@@ -600,20 +746,18 @@ async function loadImageFileToCanvas(file){
   }
 }
 
-/* ----------------- Paper format ----------------- */
-const PAPER = {
-  A4_P: { w:2480, h:3508, label:"A4 hoch" },
-  A4_L: { w:3508, h:2480, label:"A4 quer" },
-  A5_P: { w:1748, h:2480, label:"A5 hoch" },
-  A5_L: { w:2480, h:1748, label:"A5 quer" }
-};
-
-function getPaperKey(){ return $("paperFmt")?.value || "A4_L"; }
-function getPaperDims(){ return PAPER[getPaperKey()] || PAPER.A4_L; }
-
 /* ----------------- State ----------------- */
+const PAPER = {
+  A4_P:{ key:"A4_P", label:"A4 hoch", w:2480, h:3508 },
+  A4_L:{ key:"A4_L", label:"A4 quer", w:3508, h:2480 },
+  A5_P:{ key:"A5_P", label:"A5 hoch", w:1748, h:2480 },
+  A5_L:{ key:"A5_L", label:"A5 quer", w:2480, h:1748 },
+};
+function paperByKey(key){ return PAPER[key] || PAPER.A4_P; }
+
 const S = {
   cvReady:false,
+  warp:{ formatKey:"A4_P" },
   frontImg:null,
   backImg:null,
   pts: { front:[], back:[] },
@@ -622,13 +766,12 @@ const S = {
     back :{scale:1, ox:0, oy:0},
     grid :{scale:1, ox:0, oy:0}
   },
-
   pointers:new Map(),
   pinch:null,
   dragPoint:null,
   pan:null,
 
-  work: { front:null, back:null, mode:"none" }, // "warp" | "raw"
+  work: { front:null, back:null, mode:"none" },
   xRel:[],
   yRel:[],
   disabledCells:new Set(),
@@ -637,20 +780,11 @@ const S = {
   gridPointers:new Map(),
   gridPinch:null,
   gridPan:null,
+  gridLastTap:{t:0, x:0, y:0},
   gridGestureLockUntil:0,
 
-  // FIX: Tap-Handling mit Delay (damit Doppeltipp keine Linie erzeugt)
-  gridTapTimer:null,
-  gridTapPending:null, // {t,x,y}
-
-  cells:[],
-  paperKey:"A4_L"
+  cells:[]
 };
-
-$("paperFmt").addEventListener("change", ()=>{
-  S.paperKey = getPaperKey();
-  setStatus(`Front-Format: ${getPaperDims().label} (Back übernimmt).`);
-});
 
 /* ----------------- OpenCV init ----------------- */
 window.Module = window.Module || {};
@@ -670,6 +804,18 @@ $("frontPick").addEventListener("change", (e)=> loadSide(e, "front"));
 $("backCam").addEventListener("change", (e)=> loadSide(e, "back"));
 $("backPick").addEventListener("change", (e)=> loadSide(e, "back"));
 
+function updateFrontWarpLabel(){
+  const p = paperByKey(S.warp.formatKey);
+  $("btnFrontWarp").textContent = `Entzerren (${p.label})`;
+}
+$("warpFormat").value = S.warp.formatKey;
+updateFrontWarpLabel();
+$("warpFormat").addEventListener("change", ()=>{
+  S.warp.formatKey = $("warpFormat").value;
+  updateFrontWarpLabel();
+  setStatus(`Format gesetzt: ${paperByKey(S.warp.formatKey).label} (gilt auch für Back).`);
+});
+
 async function loadSide(e, which){
   const f = e.target.files?.[0];
   if(!f) return;
@@ -680,8 +826,6 @@ async function loadSide(e, which){
 
   if(which==="front"){
     S.frontImg = imgCanvas;
-    S.paperKey = getPaperKey();
-
     $("frontState").textContent="geladen";
     $("frontState").className="badge ok";
     $("btnFrontManual").disabled=false;
@@ -696,7 +840,7 @@ async function loadSide(e, which){
 
     hookPhotoCanvas("front");
     renderPhoto("front");
-    setStatus(`Front geladen. Format: ${getPaperDims().label} (wird für Back übernommen).`);
+    setStatus("Front geladen.");
   } else {
     S.backImg = imgCanvas;
     $("backState").textContent="geladen";
@@ -726,7 +870,7 @@ function startManual(which){
   S.pts[which]=[];
   if(which==="front") $("btnFrontWarp").disabled=true;
   else $("btnBackWarp").disabled=true;
-  setStatus(`${which.toUpperCase()}: 4× tippen (Papierecken TL→TR→BR→BL).`);
+  setStatus(`${which.toUpperCase()}: 4× tippen (TL→TR→BR→BL).`);
   renderPhoto(which);
 }
 
@@ -744,7 +888,6 @@ function renderPhoto(which){
   const ctx=canvas.getContext("2d");
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
-
   if(!img) return;
 
   const baseR = Math.min(canvas.width/img.width, canvas.height/img.height);
@@ -923,6 +1066,57 @@ function photoPointerUp(which, canvas, e){
   S.pan=null;
 }
 
+/* ----------------- Settings Save/Load ----------------- */
+const SETTINGS_IDS = [
+  "fmt","jpgq","gridPad","tight",
+  "edgeRun","edgeOff",
+  "fThrT","fFillT","fThrR","fFillR","fThrB","fFillB","fThrL","fFillL",
+  "bThrT","bFillT","bThrR","bFillR","bThrB","bFillB","bThrL","bFillL",
+  "tightPad","minRatio","keep",
+  "debugOverlay"
+];
+
+function settingsGet(){
+  const out = { version: 1, ts: Date.now(), values:{} };
+  for(const id of SETTINGS_IDS){
+    const el = $(id);
+    if(!el) continue;
+    out.values[id] = (el.type === "checkbox") ? !!el.checked : el.value;
+  }
+  return out;
+}
+function settingsApply(obj){
+  const v = obj?.values || {};
+  for(const id of Object.keys(v)){
+    const el = $(id);
+    if(!el) continue;
+    if(el.type === "checkbox") el.checked = !!v[id];
+    else el.value = v[id];
+  }
+  if($("jpgqLabel") && $("jpgq")) $("jpgqLabel").textContent = $("jpgq").value;
+}
+
+$("btnSettingsSave")?.addEventListener("click", ()=>{
+  const data = settingsGet();
+  downloadBlob(new Blob([JSON.stringify(data,null,2)], {type:"application/json"}), "settings.json");
+  setStatus("Einstellungen gespeichert (settings.json).");
+});
+$("btnSettingsLoad")?.addEventListener("click", ()=> $("settingsLoad")?.click());
+$("settingsLoad")?.addEventListener("change", async (e)=>{
+  const f = e.target.files?.[0];
+  if(!f) return;
+  try{
+    const obj = JSON.parse(await f.text());
+    settingsApply(obj);
+    setStatus("Einstellungen geladen.");
+  }catch(err){
+    console.error(err);
+    alert("Konnte settings.json nicht lesen (ungültiges JSON).");
+  }finally{
+    e.target.value = "";
+  }
+});
+
 /* ----------------- WORK MODE: raw / warp ----------------- */
 function enableGridUI(){
   const readyFront = !!S.work.front;
@@ -979,8 +1173,8 @@ async function warpPaper(which){
     return;
   }
 
-  const dims = PAPER[S.paperKey] || PAPER.A4_L;
-  setStatus(`${which.toUpperCase()}: Entzerren läuft… (${dims.label})`);
+  const paper = paperByKey(S.warp.formatKey);
+  setStatus(`${which.toUpperCase()}: Entzerren läuft… (${paper.label})`);
 
   try{
     const src = canvasToCvSrc(img);
@@ -991,23 +1185,14 @@ async function warpPaper(which){
       pts[2].x, pts[2].y,
       pts[3].x, pts[3].y
     ]);
-    const dstTri = cv.matFromArray(4,1,cv.CV_32FC2,[
-      0,0,  dims.w,0,  dims.w,dims.h,  0,dims.h
-    ]);
+    const W = paper.w, H = paper.h;
+    const dstTri = cv.matFromArray(4,1,cv.CV_32FC2,[ 0,0,  W,0,  W,H,  0,H ]);
 
     const M = cv.getPerspectiveTransform(srcTri, dstTri);
     const dst = new cv.Mat();
-    cv.warpPerspective(
-      src, dst, M,
-      new cv.Size(dims.w,dims.h),
-      cv.INTER_LINEAR,
-      cv.BORDER_CONSTANT,
-      new cv.Scalar(255,255,255,255)
-    );
+    cv.warpPerspective(src, dst, M, new cv.Size(W,H), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255,255,255,255));
 
     const outCanvas = which==="front" ? $("frontWarpCanvas") : $("backWarpCanvas");
-    outCanvas.width = dims.w;
-    outCanvas.height = dims.h;
     cv.imshow(outCanvas, dst);
 
     src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
@@ -1015,16 +1200,16 @@ async function warpPaper(which){
     S.work.mode="warp";
     if(which==="front"){
       S.work.front = outCanvas;
-      $("frontState").textContent=`entzerrt (${dims.label})`;
+      $("frontState").textContent="entzerrt";
       $("frontState").className="badge ok";
     } else {
       S.work.back = outCanvas;
-      $("backState").textContent=`entzerrt (${dims.label})`;
+      $("backState").textContent="entzerrt";
       $("backState").className="badge ok";
     }
 
     enableGridUI();
-    setStatus(`${which.toUpperCase()}: entzerrt (${dims.label}).`);
+    setStatus(`${which.toUpperCase()}: entzerrt (${paper.label}).`);
   }catch(err){
     console.error(err);
     alert("Entzerren fehlgeschlagen (siehe Konsole).");
@@ -1039,9 +1224,6 @@ $("btnGridClear").addEventListener("click", ()=>{
   S.xRel=[]; S.yRel=[];
   S.disabledCells.clear();
   S.undo=[];
-  // pending tap cleanup
-  if(S.gridTapTimer){ clearTimeout(S.gridTapTimer); S.gridTapTimer=null; }
-  S.gridTapPending=null;
   renderGrid();
   setStatus("Alles gelöscht.");
 });
@@ -1068,8 +1250,7 @@ $("btnGridSave").addEventListener("click", ()=>{
     version:2,
     x_rel: [...S.xRel].sort((a,b)=>a-b),
     y_rel: [...S.yRel].sort((a,b)=>a-b),
-    disabled: [...S.disabledCells].sort((a,b)=>a-b),
-    paper: S.paperKey
+    disabled: [...S.disabledCells].sort((a,b)=>a-b)
   };
   downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),"grid.json");
 });
@@ -1082,13 +1263,6 @@ $("gridLoad").addEventListener("change", async (e)=>{
   S.yRel = (j.y_rel||[]).map(Number);
   S.disabledCells = new Set(j.disabled||[]);
   S.undo=[];
-
-  if(typeof j.paper === "string" && PAPER[j.paper]) S.paperKey = j.paper;
-
-  // pending tap cleanup
-  if(S.gridTapTimer){ clearTimeout(S.gridTapTimer); S.gridTapTimer=null; }
-  S.gridTapPending=null;
-
   renderGrid();
   setStatus("Grid geladen.");
 });
@@ -1096,20 +1270,28 @@ $("gridLoad").addEventListener("change", async (e)=>{
 $("gridWhich").addEventListener("change", ()=> renderGrid());
 
 $("btnGridApply").addEventListener("click", ()=>{
-  if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein.");
-  buildCells();
+  try{
+    if(!S.work.front || !S.work.back){
+      alert("Front & Back müssen bereit sein (in Step 1/2 'Entzerren' oder 'Ohne Entzerren weiter' klicken).");
+      return;
+    }
+    buildCells();
 
-  const ok = S.cells.length>0;
-  $("btnPreview").disabled = !ok;
-  $("btnExport").disabled  = !ok;
+    const ok = S.cells.length>0;
+    $("btnPreview").disabled = !ok;
+    $("btnExport").disabled  = !ok;
 
-  $("prevState").textContent = ok ? "bereit" : "wartet";
-  $("prevState").className = ok ? "badge ok" : "badge warn";
-  $("expState").textContent  = ok ? "bereit" : "wartet";
-  $("expState").className  = ok ? "badge ok" : "badge warn";
+    $("prevState").textContent = ok ? "bereit" : "wartet";
+    $("prevState").className = ok ? "badge ok" : "badge warn";
+    $("expState").textContent  = ok ? "bereit" : "wartet";
+    $("expState").className  = ok ? "badge ok" : "badge warn";
 
-  setStatus(ok ? `Grid angewandt: ${S.cells.length} Zellen (${S.disabledCells.size} deaktiviert).`
-               : "Grid ergibt keine Zellen.");
+    setStatus(ok ? `Grid angewandt: ${S.cells.length} Zellen (${S.disabledCells.size} deaktiviert).`
+                 : "Grid ergibt keine Zellen (zu wenig Linien?).");
+  }catch(err){
+    console.error(err);
+    alert("Grid anwenden ist abgestürzt. Schau Konsole (F12) → Console → rote Meldung.");
+  }
 });
 
 function hookGridCanvas(){
@@ -1211,7 +1393,7 @@ function renderGrid(){
   ctx.restore();
 }
 
-/* grid interactions: pinch/pan never sets lines */
+/* grid interactions */
 function gridPointerDown(canvas, e){
   if(!S.work.front) return;
   canvas.setPointerCapture(e.pointerId);
@@ -1257,22 +1439,16 @@ function gridPointerUp(canvas, e){
   S.gridPointers.delete(e.pointerId);
 
   if(S.gridPointers.size<2) S.gridPinch=null;
-
   if(S.gridPan && S.gridPan.moved){ S.gridPan=null; return; }
   S.gridPan=null;
-
   if(Date.now() < S.gridGestureLockUntil) return;
 
-  const now = Date.now();
-  const pending = S.gridTapPending;
+  const now=Date.now();
+  const dt = now - S.gridLastTap.t;
+  const dd = Math.hypot(p.x - S.gridLastTap.x, p.y - S.gridLastTap.y);
+  S.gridLastTap = {t:now, x:p.x, y:p.y};
 
-  const isDouble = pending && ((now - pending.t) < 320) && (Math.hypot(p.x-pending.x, p.y-pending.y) < 25);
-
-  if(isDouble){
-    // cancel pending single-tap action (line)
-    if(S.gridTapTimer){ clearTimeout(S.gridTapTimer); S.gridTapTimer=null; }
-    S.gridTapPending = null;
-
+  if(dt < 320 && dd < 25){
     const idx = hitTestCell(p.x,p.y);
     if(idx!==null){
       const wasDisabled = S.disabledCells.has(idx);
@@ -1285,18 +1461,7 @@ function gridPointerUp(canvas, e){
     return;
   }
 
-  // schedule single tap (line) AFTER double-tap window
-  if(S.gridTapTimer){ clearTimeout(S.gridTapTimer); S.gridTapTimer=null; }
-  S.gridTapPending = { t: now, x: p.x, y: p.y };
-
-  S.gridTapTimer = setTimeout(()=>{
-    // still pending -> it was a single tap
-    if(!S.gridTapPending) return;
-    const {x,y} = S.gridTapPending;
-    S.gridTapPending = null;
-    S.gridTapTimer = null;
-    addLineFromTap(x,y);
-  }, 320);
+  addLineFromTap(p.x,p.y);
 }
 
 function gridPinchStart(){
@@ -1384,64 +1549,254 @@ function cropCanvas(srcCanvas, cell){
   return c;
 }
 
-/* Tight via Bounding-Box */
-function tightOrFull(cellCanvas){
+function val(id, def){
+  const el = $(id);
+  return el ? el.value : def;
+}
+
+/*
+  FIX #1: Symmetrie darf NICHT max werden (führt zu Vollbild),
+          sondern: minimaler symmetrischer Rand (plus mini extra),
+          und NICHT nachträglich verschieben -> sonst wird’s wieder “groß”.
+*/
+function tightOrFull(cellCanvas, which){
   if(!$("tight").checked) return cellCanvas;
 
-  const pad = parseInt($("tightPad").value||"0",10);
-  const minRatio = parseFloat($("minRatio").value||"0.005");
-  const keep = parseFloat($("keep").value||"0.05");
+  const pad      = parseInt(val("tightPad", "0"), 10);
+  const minRatio = parseFloat(val("minRatio", "0.005"));
+  const keep     = parseFloat(val("keep", "0.05"));
+
+  const needConsec = clamp(parseInt(val("edgeRun","2"),10), 1, 12);
+  const edgeOff    = clamp(parseInt(val("edgeOff","6"),10), 0, 200);
+
+  const pref = (which==="back") ? "b" : "f";
+  const thrT = clamp(parseInt(val(`${pref}ThrT`,"35"),10), 1, 255);
+  const thrR = clamp(parseInt(val(`${pref}ThrR`,"35"),10), 1, 255);
+  const thrB = clamp(parseInt(val(`${pref}ThrB`,"35"),10), 1, 255);
+  const thrL = clamp(parseInt(val(`${pref}ThrL`,"35"),10), 1, 255);
+
+  const fillT = clamp(parseFloat(val(`${pref}FillT`,"0.02")), 0.0005, 0.8);
+  const fillR = clamp(parseFloat(val(`${pref}FillR`,"0.02")), 0.0005, 0.8);
+  const fillB = clamp(parseFloat(val(`${pref}FillB`,"0.02")), 0.0005, 0.8);
+  const fillL = clamp(parseFloat(val(`${pref}FillL`,"0.02")), 0.0005, 0.8);
 
   const w = cellCanvas.width, h = cellCanvas.height;
-  const ctx = cellCanvas.getContext("2d",{willReadFrequently:true});
-  const img = ctx.getImageData(0,0,w,h);
+  if(w<10 || h<10) return cellCanvas;
+
+  const MAX_SCAN = 900;
+  const scale = Math.min(1, MAX_SCAN / Math.max(w,h));
+  const sw = Math.max(1, Math.round(w*scale));
+  const sh = Math.max(1, Math.round(h*scale));
+
+  const sc = document.createElement("canvas");
+  sc.width = sw; sc.height = sh;
+  const sctx = sc.getContext("2d", {willReadFrequently:true});
+  sctx.drawImage(cellCanvas, 0,0, w,h, 0,0, sw,sh);
+
+  let img;
+  try{
+    img = sctx.getImageData(0,0,sw,sh);
+  }catch(e){
+    console.warn("tight getImageData blocked, fallback to full cell", e);
+    return cellCanvas;
+  }
   const d = img.data;
 
-  let minX=w, minY=h, maxX=-1, maxY=-1, fg=0;
-
-  for(let y=0;y<h;y++){
-    for(let x=0;x<w;x++){
-      const i=(y*w+x)*4;
-      const r=d[i], g=d[i+1], b=d[i+2];
-      const bright=(r+g+b)/3;
-      const chroma=Math.max(r,g,b) - Math.min(r,g,b);
-
-      const isBg = bright > 235 && chroma < 18;
-      if(!isBg){
-        fg++;
-        if(x<minX) minX=x;
-        if(y<minY) minY=y;
-        if(x>maxX) maxX=x;
-        if(y>maxY) maxY=y;
-      }
+  const band = Math.min(2, Math.max(1, Math.floor(Math.min(sw,sh)/200)));
+  let sr=0, sg=0, sb=0, n=0;
+  function addPixel(i){ sr+=d[i]; sg+=d[i+1]; sb+=d[i+2]; n++; }
+  for(let y=0;y<sh;y++){
+    for(let x=0;x<sw;x++){
+      const onBorder = (x<band || x>=sw-band || y<band || y>=sh-band);
+      if(!onBorder) continue;
+      addPixel((y*sw + x)*4);
     }
   }
+  if(n<10) return cellCanvas;
+  const bgR = sr/n, bgG = sg/n, bgB = sb/n;
 
-  if(maxX < 0) return cellCanvas;
-  if(fg/(w*h) < minRatio) return cellCanvas;
+  function scoreAt(i){
+    const dr = Math.abs(d[i]-bgR);
+    const dg = Math.abs(d[i+1]-bgG);
+    const db = Math.abs(d[i+2]-bgB);
+    return Math.min(255, (dr+dg+db)/3);
+  }
 
-  minX=clamp(minX-pad,0,w-1);
-  minY=clamp(minY-pad,0,h-1);
-  maxX=clamp(maxX+pad,0,w-1);
-  maxY=clamp(maxY+pad,0,h-1);
+  let fg=0;
+  const thrMin = Math.min(thrT,thrR,thrB,thrL);
+  for(let i=0;i<d.length;i+=4){
+    if(scoreAt(i) > thrMin) fg++;
+  }
+  const ratio = fg / (sw*sh);
+  if(ratio < minRatio) return cellCanvas;
 
-  const bw=maxX-minX+1, bh=maxY-minY+1;
-  if((bw*bh)/(w*h) > (1-keep)) return cellCanvas;
+  function rowFgFrac(y, thr){
+    let c=0; const off=y*sw*4;
+    for(let x=0;x<sw;x++){
+      if(scoreAt(off + x*4) > thr) c++;
+    }
+    return c / sw;
+  }
+  function colFgFrac(x, thr){
+    let c=0;
+    for(let y=0;y<sh;y++){
+      if(scoreAt((y*sw + x)*4) > thr) c++;
+    }
+    return c / sh;
+  }
 
-  const out=document.createElement("canvas");
-  out.width=bw; out.height=bh;
-  out.getContext("2d").drawImage(cellCanvas, minX,minY,bw,bh, 0,0,bw,bh);
+  function findTop(){
+    let consec=0;
+    for(let y=edgeOff;y<sh;y++){
+      if(rowFgFrac(y, thrT) >= fillT) consec++; else consec=0;
+      if(consec>=needConsec) return Math.max(0, y-(needConsec-1));
+    }
+    return null;
+  }
+  function findBottom(){
+    let consec=0;
+    for(let y=sh-1-edgeOff;y>=0;y--){
+      if(rowFgFrac(y, thrB) >= fillB) consec++; else consec=0;
+      if(consec>=needConsec) return Math.min(sh-1, y+(needConsec-1));
+    }
+    return null;
+  }
+  function findLeft(){
+    let consec=0;
+    for(let x=edgeOff;x<sw;x++){
+      if(colFgFrac(x, thrL) >= fillL) consec++; else consec=0;
+      if(consec>=needConsec) return Math.max(0, x-(needConsec-1));
+    }
+    return null;
+  }
+  function findRight(){
+    let consec=0;
+    for(let x=sw-1-edgeOff;x>=0;x--){
+      if(colFgFrac(x, thrR) >= fillR) consec++; else consec=0;
+      if(consec>=needConsec) return Math.min(sw-1, x+(needConsec-1));
+    }
+    return null;
+  }
+
+  let top = findTop();
+  let bottom = findBottom();
+  let left = findLeft();
+  let right = findRight();
+
+  if(top===null || bottom===null || left===null || right===null) return cellCanvas;
+  if(right-left < 5 || bottom-top < 5) return cellCanvas;
+
+  const padS = Math.round(pad * scale);
+  left   = clamp(left   - padS, 0, sw-1);
+  right  = clamp(right  + padS, 0, sw-1);
+  top    = clamp(top    - padS, 0, sh-1);
+  bottom = clamp(bottom + padS, 0, sh-1);
+
+  const cwS = right-left+1, chS = bottom-top+1;
+  if((cwS/sw)<keep || (chS/sh)<keep) return cellCanvas;
+
+  // ===== FIX #1: MINIMAL SYMMETRIC (statt maximal) =====
+  const padL = left;
+  const padR = (sw-1-right);
+  const padT = top;
+  const padB = (sh-1-bottom);
+
+  const maxSym = Math.min(padL, padR, padT, padB);   // wieviel symmetrisch möglich wäre
+  const tiny = Math.round(2*scale);                  // kleiner Extra-Abstand
+  const symPad = clamp(tiny, 0, maxSym);             // NICHT maxSym nehmen!
+
+  let nL = left  - symPad;
+  let nR = right + symPad;
+  let nT = top   - symPad;
+  let nB = bottom+ symPad;
+
+  nL = clamp(nL, 0, sw-1);
+  nR = clamp(nR, 0, sw-1);
+  nT = clamp(nT, 0, sh-1);
+  nB = clamp(nB, 0, sh-1);
+
+  if((nR-nL+1) < 6 || (nB-nT+1) < 6){
+    nL = left; nR = right; nT = top; nB = bottom;
+  }
+
+  const x0 = Math.floor(nL / scale);
+  const y0 = Math.floor(nT / scale);
+  const x1 = Math.ceil((nR+1) / scale);
+  const y1 = Math.ceil((nB+1) / scale);
+
+  const X0 = clamp(x0, 0, w-1);
+  const Y0 = clamp(y0, 0, h-1);
+  const X1 = clamp(x1, 1, w);
+  const Y1 = clamp(y1, 1, h);
+
+  const outW = X1 - X0;
+  const outH = Y1 - Y0;
+  if(outW<6 || outH<6) return cellCanvas;
+
+  const out = document.createElement("canvas");
+  out.width = outW;
+  out.height = outH;
+  out.getContext("2d").drawImage(cellCanvas, X0,Y0,outW,outH, 0,0,outW,outH);
+
+  const dbg = {
+    sw, sh,
+    scale,                 // wichtig fürs Overlay!
+    detected: { left, right, top, bottom },
+    final: { left:nL, right:nR, top:nT, bottom:nB }
+  };
+
+  cellCanvas.__dbg = dbg; // fürs Zeichnen auf voller Zelle
+  out.__dbg = dbg;        // optional fürs Pair debug
   return out;
 }
 
+/* ===== FIX #4: Debug Overlay korrekt umrechnen (scan -> full) ===== */
 function drawFitTo(canvas, src){
-  const ctx=canvas.getContext("2d");
+  const ctx = canvas.getContext("2d");
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const r=Math.min(canvas.width/src.width, canvas.height/src.height);
-  const w=src.width*r, h=src.height*r;
-  const x=(canvas.width-w)/2, y=(canvas.height-h)/2;
-  ctx.drawImage(src,x,y,w,h);
+
+  const r = Math.min(canvas.width/src.width, canvas.height/src.height);
+  const w = src.width * r;
+  const h = src.height * r;
+  const x = (canvas.width  - w) / 2;
+  const y = (canvas.height - h) / 2;
+
+  ctx.drawImage(src, x, y, w, h);
+
+  drawDebugOverlay(canvas, src, {r,x,y});
+}
+
+function drawDebugOverlay(canvas, src, fit){
+  const dbg = src?.__dbg;
+  if(!dbg) return;
+  const chk = $("debugOverlay");
+  if(!chk || !chk.checked) return;
+
+  const ctx = canvas.getContext("2d");
+  const inv = 1 / (dbg.scale || 1); // scan->full
+
+  function toCanvasRect(rect){
+    const x0 = (rect.left  * inv) * fit.r + fit.x;
+    const y0 = (rect.top   * inv) * fit.r + fit.y;
+    const x1 = (rect.right * inv) * fit.r + fit.x;
+    const y1 = (rect.bottom* inv) * fit.r + fit.y;
+    return {x0,y0,w:(x1-x0),h:(y1-y0)};
+  }
+
+  const det = toCanvasRect({left:dbg.detected.left, right:dbg.detected.right, top:dbg.detected.top, bottom:dbg.detected.bottom});
+  const fin = toCanvasRect({left:dbg.final.left, right:dbg.final.right, top:dbg.final.top, bottom:dbg.final.bottom});
+
+  ctx.save();
+  ctx.lineWidth = 3;
+
+  ctx.strokeStyle = "rgba(0,200,0,0.9)";
+  ctx.strokeRect(det.x0, det.y0, det.w, det.h);
+
+  ctx.strokeStyle = "rgba(220,0,0,0.9)";
+  ctx.strokeRect(fin.x0, fin.y0, fin.w, fin.h);
+
+  ctx.restore();
 }
 
 function buildPairCanvas(front, back){
@@ -1455,6 +1810,7 @@ function buildPairCanvas(front, back){
   return pair;
 }
 
+/* ===== FIX #2: Preview zeigt volle Zelle + Overlay; Pair zeigt crop ===== */
 $("btnPreview").addEventListener("click", ()=>{
   if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
   buildCells();
@@ -1464,12 +1820,21 @@ $("btnPreview").addEventListener("click", ()=>{
   $("idx").value = idx;
   const cell = S.cells[idx-1];
 
-  const f = tightOrFull(cropCanvas(S.work.front, cell));
-  const b = tightOrFull(cropCanvas(S.work.back, cell));
+  const f0 = cropCanvas(S.work.front, cell);
+  const b0 = cropCanvas(S.work.back, cell);
 
-  drawFitTo($("knobFront"), f);
-  drawFitTo($("knobBack"), b);
+  // erzeugt dbg auf f0/b0 und crop-canvas für Pair
+  let f = tightOrFull(f0, "front");
+  let b = tightOrFull(b0, "back");
 
+  if(!f || f.width < 10 || f.height < 10) f = f0;
+  if(!b || b.width < 10 || b.height < 10) b = b0;
+
+  // Front/Back: volle Zelle
+  drawFitTo($("knobFront"), f0);
+  drawFitTo($("knobBack"), b0);
+
+  // Pair: gecroppt
   const doPairs = $("pairs").checked;
   $("pairLabel").style.display = doPairs ? "block" : "none";
   $("knobPair").style.display  = doPairs ? "block" : "none";
@@ -1478,6 +1843,7 @@ $("btnPreview").addEventListener("click", ()=>{
   }
 });
 
+/* Export */
 async function canvasToBlob(c, fmt, q){
   return await new Promise(res=>{
     if(fmt==="png") c.toBlob(res,"image/png");
@@ -1505,8 +1871,14 @@ $("btnExport").addEventListener("click", async ()=>{
   for(const cell of S.cells){
     if(S.disabledCells.has(cell.idx)) continue;
 
-    const f=tightOrFull(cropCanvas(S.work.front, cell));
-    const b=tightOrFull(cropCanvas(S.work.back, cell));
+    const f0 = cropCanvas(S.work.front, cell);
+    const b0 = cropCanvas(S.work.back, cell);
+
+    let f = tightOrFull(f0, "front");
+    let b = tightOrFull(b0, "back");
+
+    if(!f || f.width < 10 || f.height < 10) f = f0;
+    if(!b || b.width < 10 || b.height < 10) b = b0;
 
     F.file(`front_${pad3(cell.idx)}.${fmt}`, await canvasToBlob(f, fmt, q));
     B.file(`back_${pad3(cell.idx)}.${fmt}`,  await canvasToBlob(b, fmt, q));
