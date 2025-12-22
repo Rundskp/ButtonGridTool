@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "ts": 1766436944995,
+  "values": {
+    "fmt": "jpg",
+    "jpgq": "92",
+    "gridPad": "15",
+    "tight": true,
+    "edgeRun": "2",
+    "edgeOff": "6",
+    "fThrT": "42",
+    "fFillT": "0.2",
+    "fThrR": "42",
+    "fFillR": "0.2",
+    "fThrB": "42",
+    "fFillB": "0.2",
+    "fThrL": "42",
+    "fFillL": "0.2",
+    "bThrT": "42",
+    "bFillT": "0.2",
+    "bThrR": "42",
+    "bFillR": "0.2",
+    "bThrB": "42",
+    "bFillB": "0.2",
+    "bThrL": "42",
+    "bFillL": "0.2",
+    "tightPad": "12",
+    "debugOverlay": true
+  }
+}
