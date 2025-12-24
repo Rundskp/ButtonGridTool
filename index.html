@@ -829,6 +829,8 @@ const S = {
   gridPan:null,
   gridLastTap:{t:0, x:0, y:0},
   gridGestureLockUntil:0,
+  gridTapTimer: null,
+  gridTapCandidate: null,
 
   cells:[]
 };
@@ -1482,34 +1484,67 @@ function gridPointerMove(canvas, e){
 }
 
 function gridPointerUp(canvas, e){
-  const p=localPoint(canvas,e);
+  const p = localPoint(canvas,e);
   S.gridPointers.delete(e.pointerId);
 
-  if(S.gridPointers.size<2) S.gridPinch=null;
-  if(S.gridPan && S.gridPan.moved){ S.gridPan=null; return; }
-  S.gridPan=null;
+  if(S.gridPointers.size < 2) S.gridPinch = null;
+
+  // Wenn gepannt wurde: KEIN Tap (also auch keine Linie, kein Toggle)
+  if(S.gridPan && S.gridPan.moved){
+    S.gridPan = null;
+    return;
+  }
+  S.gridPan = null;
+
+  // Während/kurz nach Pinch/Pan: Tap ignorieren
   if(Date.now() < S.gridGestureLockUntil) return;
 
-  const now=Date.now();
-  const dt = now - S.gridLastTap.t;
-  const dd = Math.hypot(p.x - S.gridLastTap.x, p.y - S.gridLastTap.y);
-  S.gridLastTap = {t:now, x:p.x, y:p.y};
+  const now = Date.now();
+  const dt  = now - (S.gridLastTap.t || 0);
+  const dd  = Math.hypot(p.x - (S.gridLastTap.x || 0), p.y - (S.gridLastTap.y || 0));
 
-  if(dt < 320 && dd < 25){
-    const idx = hitTestCell(p.x,p.y);
-    if(idx!==null){
+  // Candidate für möglichen Double-Tap merken
+  const isClose = (dt < 320 && dd < 25);
+
+  // Wenn das ein zweiter Tap (DoubleTap) ist:
+  if(isClose && S.gridTapCandidate){
+    // SingleTap-Linien-Timer killen
+    if(S.gridTapTimer){
+      clearTimeout(S.gridTapTimer);
+      S.gridTapTimer = null;
+    }
+    S.gridTapCandidate = null;
+
+    const idx = hitTestCell(p.x, p.y);
+    if(idx !== null){
       const wasDisabled = S.disabledCells.has(idx);
       if(wasDisabled) S.disabledCells.delete(idx);
       else S.disabledCells.add(idx);
+
       S.undo.push({type:"toggleCell", idx, toDisabled: !wasDisabled});
       renderGrid();
       setStatus(`Zelle ${idx} ${S.disabledCells.has(idx) ? "deaktiviert" : "aktiviert"}.`);
     }
+    S.gridLastTap = {t: now, x: p.x, y: p.y};
     return;
   }
 
-  addLineFromTap(p.x,p.y);
+  // Kein DoubleTap: SingleTap NICHT sofort ausführen,
+  // sondern kurz warten ob doch ein zweiter Tap kommt.
+  S.gridLastTap = {t: now, x: p.x, y: p.y};
+  S.gridTapCandidate = {t: now, x: p.x, y: p.y};
+
+  if(S.gridTapTimer) clearTimeout(S.gridTapTimer);
+  S.gridTapTimer = setTimeout(() => {
+    // Wenn bis jetzt kein DoubleTap passiert ist -> Linie setzen
+    if(S.gridTapCandidate){
+      addLineFromTap(S.gridTapCandidate.x, S.gridTapCandidate.y);
+      S.gridTapCandidate = null;
+    }
+    S.gridTapTimer = null;
+  }, 320);
 }
+
 
 function gridPinchStart(){
   const a=[...S.gridPointers.values()];
