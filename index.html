@@ -51,9 +51,25 @@
     /* modal */
     .modalBackdrop{
       position:fixed; inset:0; background:rgba(0,0,0,.35);
-      display:none; align-items:flex-end; justify-content:center; z-index:999;
+      display:none;
+      align-items:flex-start;      /* war flex-end -> zu weit unten */
+      justify-content:center;
+      z-index:999;
       padding:12px;
+      padding-top:4vh;             /* Modal höher */
+      overflow:auto;               /* falls doch zu groß */
     }
+
+    .modal{
+      width:min(980px, 100%);
+      background:#fff;
+      border-radius:16px;
+      border:1px solid #ddd;
+      padding:12px;
+      max-height:92vh;             /* war 82vh -> mehr Platz, weniger Scrollen */
+      overflow:auto;
+    }
+
     .modal{
       width:min(980px, 100%); background:#fff; border-radius:16px; border:1px solid #ddd;
       padding:12px; max-height:82vh; overflow:auto;
@@ -239,10 +255,20 @@
         <input id="idx" type="number" value="1" min="1" step="1" style="width:90px;">
       </span>
       <button id="btnPreview" class="primary" disabled>Preview</button>
-
+      <button id="btnResetCrop" disabled>Reset Crop</button>
+      <span id="disabledHint" class="badge warn" style="display:none;">deaktiviert</span>
       <span class="pill"><b>Pairs</b>
         <input id="pairs" type="checkbox" checked />
       </span>
+      <span class="pill"><b>Back Mapping</b>
+  <select id="backMap">
+    <option value="none" selected>Normal</option>
+    <option value="mx">Spiegel horizontal (L↔R)</option>
+    <option value="my">Spiegel vertikal (O↔U)</option>
+    <option value="mxy">180° (beides)</option>
+  </select>
+</span>
+
     </div>
 
     <div class="split">
@@ -327,6 +353,21 @@
     <div class="hr"></div>
 
     <!-- OBJEKT -->
+    <div class="hr"></div>
+
+<p class="small"><b>Front ↔ Back Zuordnung</b></p>
+<div class="row">
+  <span class="pill">
+    <b>Back-Zuordnung</b>
+    <select id="backMap">
+      <option value="none" selected>Normal</option>
+      <option value="mx">Spiegel horizontal (L↔R)</option>
+      <option value="my">Spiegel vertikal (O↔U)</option>
+      <option value="mxy">180° (beides)</option>
+    </select>
+  </span>
+</div>
+
     <p class="small"><b>Objekt automatisch zuschneiden</b></p>
     <div class="row">
       <span class="pill">
@@ -419,6 +460,7 @@
       <b>Kante muss mehrmals passen:</b> schützt vor Staub & Rauschen.<br>
       <b>Startabstand:</b> verhindert Fehldetektion direkt am Zellrand.<br>
       <b>Debug-Overlay:</b> grün = erkannte Objektkante, rot = finaler Zuschnitt.
+      <br><b>Manueller Zuschnitt:</b> Das Ziehen der Crop-Kanten im Preview ist nur möglich, wenn <b>Debug-Overlay</b> aktiviert ist.
     </p>
 
   </div>
@@ -454,11 +496,20 @@
 
     <p class="small">
       <b>So nutzt du es korrekt (Kurz-Anleitung)</b><br>
-      1) Step 1: Front laden → <b>Papierformat wählen</b> (A4/A5, Hoch/Quer) → “Manuell 4 Ecken” → <b>gemeint sind die 4 Papier-Ecken</b> → TL→TR→BR→BL tippen → Punkte feinziehen → “Entzerren” (oder “Ohne Entzerren”).<br>
-      2) Step 2: Back genauso (wichtig: damit du im Pair siehst, ob was abgeschnitten ist).<br>
-      3) Step 3: Grid setzen (Tap = Linie). Pinch/Drag = Zoom/Pan. Ansicht auf Back umschalten zum Check.<br>
-      4) Step 4: Preview: Knopf # wählen, Front/Back/Pair prüfen.<br>
-      5) Step 5: ZIP Export.
+1) Step 1: Front laden → <b>Papierformat wählen</b> (A4/A5, Hoch/Quer) → “Manuell 4 Ecken” → <b>Papier-Ecken</b> TL→TR→BR→BL tippen → Punkte feinziehen → “Entzerren” (oder “Ohne Entzerren”).<br>
+2) Step 2: Back genauso (wichtig: damit Front/Back später sauber passen).<br>
+3) Step 3: Grid setzen (Tap = Linie). Pinch/Drag = Zoom/Pan. <b>Doppeltipp</b> auf Zelle = deaktivieren/aktivieren (deaktiviert = rot, wird <b>nicht exportiert</b>).<br>
+4) Step 4: Preview: <b>Knopf #</b> eingeben → <b>Preview</b> klicken. <b>Navigation:</b> Wenn das Feld “Knopf #” aktiv ist, springen <b>↑ / ↓</b> automatisch zur nächsten <b>aktiven</b> Zelle und lösen sofort Preview aus (deaktivierte werden übersprungen). <b>Ausnahme:</b> Wenn du eine Nummer manuell eintippst und Preview klickst, kannst du auch deaktivierte Zellen ansehen (wird dann als “deaktiviert” markiert).<br>
+&nbsp;&nbsp;&nbsp;• <b>Manuelles Zuschneiden pro Zelle:</b> Wenn <b>Debug-Overlay</b> in den Einstellungen aktiv ist, siehst du im Preview einen Rahmen. Du kannst die <b>Rahmenkanten ziehen</b>, um den Crop für genau diese Zelle zu korrigieren (z.B. Reflexe in Albumhüllen).<br>
+&nbsp;&nbsp;&nbsp;• <b>Reset Crop:</b> “Reset Crop” setzt den manuellen Zuschnitt dieser Zelle wieder zurück auf Auto/Fallback.<br>
+<p class="small">
+<b>Hinweis zu gescannten Folien:</b><br>
+Wenn Rückseiten durch Umdrehen der Folie spiegelverkehrt liegen,
+stelle in den <b>Einstellungen → Back-Zuordnung</b> die passende
+Spiegelung ein (meist: <b>Spiegel horizontal</b>).
+</p>
+5) Step 5: ZIP Export (Front/Back und optional Pair). Deaktivierte Zellen werden übersprungen.
+
     </p>
     <div class="hr"></div>
     <p class="small muted">
@@ -635,6 +686,106 @@ function setStatus(s){ statusEl.textContent = "Status: " + s; }
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function clampScale(s){ return clamp(s, 1, 6); }
 function pad3(n){ return String(n).padStart(3,"0"); }
+function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+
+function cropRect01(srcCanvas, rect01){
+  const w = srcCanvas.width, h = srcCanvas.height;
+
+  const l = clamp01(rect01.l), t = clamp01(rect01.t);
+  const r = clamp01(rect01.r), b = clamp01(rect01.b);
+
+  const sx = Math.round(l * w);
+  const sy = Math.round(t * h);
+  const sw = Math.max(1, Math.round((r - l) * w));
+  const sh = Math.max(1, Math.round((b - t) * h));
+
+  const out = document.createElement("canvas");
+  out.width = sw;
+  out.height = sh;
+  out.getContext("2d").drawImage(srcCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+  return out;
+}
+
+// Auto-Rect (0..1) aus dbg.final (scan coords) -> full coords -> 0..1
+function autoRect01FromDbg(srcCanvas){
+  const dbg = srcCanvas?.__dbg;
+  if(!dbg) return null;
+
+  const inv = 1 / (dbg.scale || 1);
+  const w = srcCanvas.width, h = srcCanvas.height;
+
+  const leftF   = dbg.final.left   * inv;
+  const rightF  = dbg.final.right  * inv;
+  const topF    = dbg.final.top    * inv;
+  const bottomF = dbg.final.bottom * inv;
+
+  // +1 weil right/bottom im dbg inklusiv sind
+  return {
+    l: clamp01(leftF / w),
+    t: clamp01(topF / h),
+    r: clamp01((rightF + 1) / w),
+    b: clamp01((bottomF + 1) / h)
+  };
+}
+
+function getVisibleRect01(side, idx, srcCanvas){
+  // manual schlägt auto
+  const m = S.manualCrop?.[side]?.[idx];
+  if(m) return m;
+
+  const a = autoRect01FromDbg(srcCanvas);
+  if(a) return a;
+
+  // fallback: full frame (Overlay muss sichtbar bleiben)
+  return { l:0, t:0, r:1, b:1 };
+}
+
+// Rect01 -> Rect in canvas px (unter Beachtung von fit)
+function rect01ToCanvasPx(rect01, fit){
+  const x0 = fit.x + rect01.l * fit.w;
+  const y0 = fit.y + rect01.t * fit.h;
+  const x1 = fit.x + rect01.r * fit.w;
+  const y1 = fit.y + rect01.b * fit.h;
+  return { x:x0, y:y0, w:(x1-x0), h:(y1-y0) };
+}
+
+function hitTestEdge(px, py, rectPx, tol=12){
+  const x = rectPx.x, y = rectPx.y, w = rectPx.w, h = rectPx.h;
+  const onL = Math.abs(px - x) <= tol && py >= y - tol && py <= y + h + tol;
+  const onR = Math.abs(px - (x+w)) <= tol && py >= y - tol && py <= y + h + tol;
+  const onT = Math.abs(py - y) <= tol && px >= x - tol && px <= x + w + tol;
+  const onB = Math.abs(py - (y+h)) <= tol && px >= x - tol && px <= x + w + tol;
+  if(onL) return "l";
+  if(onR) return "r";
+  if(onT) return "t";
+  if(onB) return "b";
+  return null;
+}
+
+function updateRectEdge(rect, edge, dx01, dy01, minSize01=0.08){
+  let {l,t,r,b} = rect;
+
+  if(edge==="l") l = clamp01(l + dx01);
+  if(edge==="r") r = clamp01(r + dx01);
+  if(edge==="t") t = clamp01(t + dy01);
+  if(edge==="b") b = clamp01(b + dy01);
+
+  // min size sichern
+  if(r - l < minSize01){
+    if(edge==="l") l = r - minSize01;
+    else r = l + minSize01;
+  }
+  if(b - t < minSize01){
+    if(edge==="t") t = b - minSize01;
+    else b = t + minSize01;
+  }
+
+  l = clamp01(l); t = clamp01(t); r = clamp01(r); b = clamp01(b);
+  if(r - l < minSize01) r = clamp01(l + minSize01);
+  if(b - t < minSize01) b = clamp01(t + minSize01);
+
+  return {l,t,r,b};
+}
 
 function downloadBlob(blob, filename){
   const a=document.createElement("a");
@@ -832,8 +983,15 @@ const S = {
   gridTapTimer: null,
   gridTapCandidate: null,
 
-  cells:[]
+  cells:[],
+
+  // manuelles Crop pro Zelle (rect in 0..1 relativ zur Zelle)
+  manualCrop: {
+    front: {}, // key: idx -> {l,t,r,b}
+    back:  {}
+  }
 };
+
   window.S = S;
 
 
@@ -1117,7 +1275,8 @@ const SETTINGS_IDS = [
   "fThrT","fFillT","fThrR","fFillR","fThrB","fFillB","fThrL","fFillL",
   "bThrT","bFillT","bThrR","bFillR","bThrB","bFillB","bThrL","bFillL",
   "tightPad","minRatio","keep",
-  "debugOverlay"
+  "debugOverlay",
+  "backMap"
 ];
 
 function settingsGet(){
@@ -1329,6 +1488,7 @@ $("btnGridApply").addEventListener("click", ()=>{
     const ok = S.cells.length>0;
     $("btnPreview").disabled = !ok;
     $("btnExport").disabled  = !ok;
+    $("btnResetCrop").disabled = !ok;
 
     $("prevState").textContent = ok ? "bereit" : "wartet";
     $("prevState").className = ok ? "badge ok" : "badge warn";
@@ -1833,7 +1993,16 @@ function tightOrFull(cellCanvas, which){
 }
 
 /* ===== FIX #4: Debug Overlay korrekt umrechnen (scan -> full) ===== */
-function drawFitTo(canvas, src){
+const PREVIEW = {
+  idx: 1,
+  src: { front:null, back:null }, // volle Zelle (f0/b0) für schnellen Redraw
+  fits: { knobFront:null, knobBack:null },
+  drag: null,
+  raf: 0
+};
+
+
+function drawFitTo(canvas, src, side){
   const ctx = canvas.getContext("2d");
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -1846,7 +2015,37 @@ function drawFitTo(canvas, src){
 
   ctx.drawImage(src, x, y, w, h);
 
-  drawDebugOverlay(canvas, src, {r,x,y});
+  // Fit speichern für Drag
+  if(side==="front") PREVIEW.fits.knobFront = { r, x, y, w, h, srcW:src.width, srcH:src.height };
+  if(side==="back")  PREVIEW.fits.knobBack  = { r, x, y, w, h, srcW:src.width, srcH:src.height };
+
+  // Overlay immer, sobald DebugOverlay an ist ODER manuelle Werte existieren
+  const chk = $("debugOverlay");
+  const wantsOverlay = !!(chk && chk.checked) || !!S.manualCrop?.[side]?.[PREVIEW.idx];
+
+  if(wantsOverlay){
+    const rect01 = getVisibleRect01(side, PREVIEW.idx, src);
+    const rp = rect01ToCanvasPx(rect01, {x,y,w,h});
+    ctx.save();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(220,0,0,0.95)";
+    ctx.strokeRect(rp.x, rp.y, rp.w, rp.h);
+
+    // kleine "Griffe"
+    ctx.beginPath();
+    ctx.moveTo(rp.x, rp.y + rp.h/2); ctx.lineTo(rp.x + 14, rp.y + rp.h/2);
+    ctx.moveTo(rp.x + rp.w, rp.y + rp.h/2); ctx.lineTo(rp.x + rp.w - 14, rp.y + rp.h/2);
+    ctx.moveTo(rp.x + rp.w/2, rp.y); ctx.lineTo(rp.x + rp.w/2, rp.y + 14);
+    ctx.moveTo(rp.x + rp.w/2, rp.y + rp.h); ctx.lineTo(rp.x + rp.w/2, rp.y + rp.h - 14);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+function redrawPreviewSide(side){
+  const src = PREVIEW.src?.[side];
+  if(!src) return;
+  if(side === "front") drawFitTo($("knobFront"), src, "front");
+  if(side === "back")  drawFitTo($("knobBack"),  src, "back");
 }
 
 function drawDebugOverlay(canvas, src, fit){
@@ -1893,28 +2092,114 @@ function buildPairCanvas(front, back){
 }
 
 /* ===== FIX #2: Preview zeigt volle Zelle + Overlay; Pair zeigt crop ===== */
-$("btnPreview").addEventListener("click", ()=>{
+function gridDims(){
+  // Anzahl Spalten/Zeilen aus Linien ableiten
+  const cols = (S.xRel?.length || 0) + 1;
+  const rows = (S.yRel?.length || 0) + 1;
+  return { cols, rows };
+}
+
+function mapBackIdx(frontIdx){
+  const mode = $("backMap")?.value || "none";
+  if(mode === "none") return frontIdx;
+
+  const { cols, rows } = gridDims();
+  if(cols <= 0 || rows <= 0) return frontIdx;
+
+  // idx -> (r,c)
+  const i0 = frontIdx - 1;
+  const r  = Math.floor(i0 / cols);
+  const c  = i0 % cols;
+
+  let rr = r, cc = c;
+
+  if(mode === "mx" || mode === "mxy") cc = (cols - 1) - c; // links↔rechts
+  if(mode === "my" || mode === "mxy") rr = (rows - 1) - r; // oben↔unten
+
+  const out = rr * cols + cc + 1;
+
+  // safety clamp
+  const max = cols * rows;
+  return clamp(out, 1, max);
+}
+function gridDims(){
+  const cols = (S.xRel?.length || 0) + 1;
+  const rows = (S.yRel?.length || 0) + 1;
+  return { cols, rows };
+}
+
+function mapBackIdx(frontIdx){
+  const mode = $("backMap")?.value || "none";
+  if(mode === "none") return frontIdx;
+
+  const { cols, rows } = gridDims();
+  if(cols <= 0 || rows <= 0) return frontIdx;
+
+  const i0 = frontIdx - 1;
+  const r  = Math.floor(i0 / cols);
+  const c  = i0 % cols;
+
+  let rr = r, cc = c;
+
+  if(mode === "mx" || mode === "mxy") cc = (cols - 1) - c;
+  if(mode === "my" || mode === "mxy") rr = (rows - 1) - r;
+
+  const out = rr * cols + cc + 1;
+  return clamp(out, 1, cols * rows);
+}
+
+function runPreview(requestedIdx, allowDisabled=true){
   if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
   buildCells();
   if(!S.cells.length) return alert("Grid ergibt keine Zellen.");
 
-  const idx = clamp(parseInt($("idx").value||"1",10), 1, S.cells.length);
+  let idx = clamp(parseInt(requestedIdx||"1",10), 1, S.cells.length);
+// Hinweis, wenn diese Zelle deaktiviert ist (manuelle Eingabe + Preview erlaubt das)
+const dh = $("disabledHint");
+if(dh){
+  const isDis = S.disabledCells.has(idx);
+  dh.style.display = isDis ? "inline-flex" : "none";
+  // optional: etwas genauer
+  // dh.textContent = isDis ? "deaktiviert (nur manuell)" : "deaktiviert";
+}
+
+  // Wenn NICHT erlaubt und die Zelle deaktiviert ist -> NICHT anzeigen
+  if(!allowDisabled && S.disabledCells.has(idx)){
+    return; // Navigation kümmert sich ums Skippen
+  }
+
+
   $("idx").value = idx;
-  const cell = S.cells[idx-1];
+  PREVIEW.idx = idx;
 
-  const f0 = cropCanvas(S.work.front, cell);
-  const b0 = cropCanvas(S.work.back, cell);
+const cellF = S.cells[idx-1];
 
-  // erzeugt dbg auf f0/b0 und crop-canvas für Pair
-  let f = tightOrFull(f0, "front");
-  let b = tightOrFull(b0, "back");
+const backIdx = mapBackIdx(idx);
+const cellB = S.cells[backIdx-1];
+
+const f0 = cropCanvas(S.work.front, cellF);
+const b0 = cropCanvas(S.work.back, cellB);
+setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
+
+
+  // Cache für schnellen Redraw beim Drag
+  PREVIEW.src.front = f0;
+  PREVIEW.src.back  = b0;
+
+  let f, b;
+
+  const mf = S.manualCrop.front[idx];
+  const mb = S.manualCrop.back[idx];
+
+  if(mf){ f = cropRect01(f0, mf); } else { f = tightOrFull(f0, "front"); }
+  if(mb){ b = cropRect01(b0, mb); } else { b = tightOrFull(b0, "back"); }
 
   if(!f || f.width < 10 || f.height < 10) f = f0;
   if(!b || b.width < 10 || b.height < 10) b = b0;
 
-  // Front/Back: volle Zelle
-  drawFitTo($("knobFront"), f0);
-  drawFitTo($("knobBack"), b0);
+  // Front/Back: volle Zelle + Overlay (wenn aktiv)
+  drawFitTo($("knobFront"), f0, "front");
+  drawFitTo($("knobBack"),  b0, "back");
 
   // Pair: gecroppt
   const doPairs = $("pairs").checked;
@@ -1923,23 +2208,175 @@ $("btnPreview").addEventListener("click", ()=>{
   if(doPairs){
     drawFitTo($("knobPair"), buildPairCanvas(f,b));
   }
+}
+
+$("btnPreview").addEventListener("click", ()=>{
+  runPreview($("idx").value, true); // manuelle Preview darf auch deaktivierte zeigen
+});
+function nextEnabledIdx(fromIdx, dir){
+  // dir: +1 oder -1
+  if(!S.cells || !S.cells.length) buildCells();
+  const max = S.cells.length;
+  let i = clamp(fromIdx, 1, max);
+
+  while(true){
+    i += dir;
+    if(i < 1 || i > max) return fromIdx;   // Ende -> bleib stehen
+    if(!S.disabledCells.has(i)) return i;  // nächste aktive
+  }
+}
+
+$("idx").addEventListener("keydown", (e)=>{
+ // Enter = wie Preview-Button klicken
+  if(e.key === "Enter"){
+    e.preventDefault();
+    $("btnPreview").click();  // ruft runPreview(..., true) so wie der Button
+    return;
+  }
+  if(e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+
+  e.preventDefault();
+
+  if(!S.cells || !S.cells.length){
+    buildCells();
+    if(!S.cells.length) return;
+  }
+
+  const cur = clamp(parseInt($("idx").value||"1",10), 1, S.cells.length);
+  const dir = (e.key === "ArrowUp") ? +1 : -1;
+
+  const next = nextEnabledIdx(cur, dir);
+
+  $("idx").value = next;
+  runPreview(next, false); // auto-preview, deaktivierte überspringen
+});
+
+function previewLocalPoint(canvas, e){
+  const r=canvas.getBoundingClientRect();
+  return { x:(e.clientX-r.left)*(canvas.width/r.width), y:(e.clientY-r.top)*(canvas.height/r.height) };
+}
+
+function handlePreviewPointerDown(e, side){
+  const chk = $("debugOverlay");
+  if(!(chk && chk.checked)) return; // Drag nur wenn DebugOverlay aktiv ist
+
+  const canvas = e.currentTarget;
+  const p = previewLocalPoint(canvas, e);
+
+  const fit = (side==="front") ? PREVIEW.fits.knobFront : PREVIEW.fits.knobBack;
+  if(!fit) return;
+
+  // Ist das srcCanvas der vollen Zelle: das vorher drawFitTo bekam.
+  // Im Flow ist das f0/b0 -> über last preview render wird aber nicht direkt drauf zugegriffen,
+  // daher als Quelle das nehmen, was in Preview gerade gilt:
+  // -> simplest: das gespeicherte manual/auto rect unabhängig vom srcCanvas nutzen.
+  const src = PREVIEW.src?.[side];
+  if(!src) return;
+
+  const rect01 = S.manualCrop[side][PREVIEW.idx] || getVisibleRect01(side, PREVIEW.idx, src);
+  const rp = rect01ToCanvasPx(rect01, fit);
+  const edge = hitTestEdge(p.x, p.y, rp, 14);
+  if(!edge) return;
+
+  canvas.setPointerCapture(e.pointerId);
+
+  PREVIEW.drag = {
+    side,
+    edge,
+    startX: p.x,
+    startY: p.y,
+    startRect: rect01,
+    fit
+  };
+
+  // ab jetzt ist es definitiv manuell
+  S.manualCrop[side][PREVIEW.idx] = rect01;
+}
+
+function handlePreviewPointerMove(e){
+  if(!PREVIEW.drag) return;
+
+  const canvas = e.currentTarget;
+  const p = previewLocalPoint(canvas, e);
+
+  const d = PREVIEW.drag;
+  const dxPx = (p.x - d.startX);
+  const dyPx = (p.y - d.startY);
+
+  const dx01 = dxPx / (d.fit.w || 1);
+  const dy01 = dyPx / (d.fit.h || 1);
+
+  const next = updateRectEdge(d.startRect, d.edge, dx01, dy01, 0.08);
+  S.manualCrop[d.side][PREVIEW.idx] = next;
+
+  // nur redraw, nicht neu rechnen (sonst Lag)
+  if(PREVIEW.raf) cancelAnimationFrame(PREVIEW.raf);
+  PREVIEW.raf = requestAnimationFrame(()=>{
+    redrawPreviewSide(d.side);
+    PREVIEW.raf = 0;
+  });
+}
+
+function handlePreviewPointerUp(){
+  PREVIEW.drag = null;
+}
+
+// Events binden
+$("knobFront").onpointerdown = (e)=> handlePreviewPointerDown(e, "front");
+$("knobFront").onpointermove = (e)=> handlePreviewPointerMove(e);
+$("knobFront").onpointerup   = (e)=> handlePreviewPointerUp(e);
+$("knobFront").onpointercancel = (e)=> handlePreviewPointerUp(e);
+
+$("knobBack").onpointerdown = (e)=> handlePreviewPointerDown(e, "back");
+$("knobBack").onpointermove = (e)=> handlePreviewPointerMove(e);
+$("knobBack").onpointerup   = (e)=> handlePreviewPointerUp(e);
+$("knobBack").onpointercancel = (e)=> handlePreviewPointerUp(e);
+/* -------- Reset Manual Crop Button -------- */
+$("btnResetCrop").addEventListener("click", ()=>{
+  if(!S.cells || !S.cells.length){
+    setStatus("Noch kein Grid angewandt.");
+    return;
+  }
+
+  const idx = clamp(parseInt($("idx").value||"1",10), 1, S.cells.length);
+
+  // beide Seiten resetten (zurück auf Auto/Fallback)
+  if(S.manualCrop?.front) delete S.manualCrop.front[idx];
+  if(S.manualCrop?.back)  delete S.manualCrop.back[idx];
+
+  setStatus(`Crop-Override für Zelle ${idx} zurückgesetzt.`);
+
+  // sofort neu zeichnen
+  $("btnPreview").click();
 });
 
 /* Export */
-async function canvasToBlob(c, fmt, q){
-  return await new Promise(res=>{
-    if(fmt==="png") c.toBlob(res,"image/png");
-    else c.toBlob(res,"image/jpeg", q);
+function exportMimeAndExt(fmt){
+  const f = String(fmt || "jpg").toLowerCase();
+  if(f === "png") return { mime:"image/png",  ext:"png" };
+  // alles was nicht png ist -> jpg
+  return { mime:"image/jpeg", ext:"jpg" };
+}
+
+function canvasToBlobAsync(canvas, mime, quality){
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if(!blob) return reject(new Error("toBlob() lieferte null"));
+      resolve(blob);
+    }, mime, quality);
   });
 }
+
 
 $("btnExport").addEventListener("click", async ()=>{
   if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
   buildCells();
   if(!S.cells.length) return alert("Grid ergibt keine Zellen.");
 
-  const fmt=$("fmt").value;
-  const q=parseInt($("jpgq").value,10)/100;
+  const fmt = String($("fmt").value || "jpg").toLowerCase();
+  const q   = parseInt($("jpgq").value,10)/100;
+  const { mime, ext } = exportMimeAndExt(fmt);
+
   const doPairs=$("pairs").checked;
 
   const zip=new JSZip();
@@ -1953,21 +2390,41 @@ $("btnExport").addEventListener("click", async ()=>{
   for(const cell of S.cells){
     if(S.disabledCells.has(cell.idx)) continue;
 
-    const f0 = cropCanvas(S.work.front, cell);
-    const b0 = cropCanvas(S.work.back, cell);
+const f0 = cropCanvas(S.work.front, cell);
 
-    let f = tightOrFull(f0, "front");
-    let b = tightOrFull(b0, "back");
+const backIdx = mapBackIdx(cell.idx);
+const cellB = S.cells[backIdx-1];
+const b0 = cropCanvas(S.work.back, cellB);
+
+
+let f, b;
+
+const mf = S.manualCrop.front[cell.idx];
+const mb = S.manualCrop.back[cell.idx];
+
+if(mf){
+  f = cropRect01(f0, mf);
+}else{
+  f = tightOrFull(f0, "front");
+}
+
+if(mb){
+  b = cropRect01(b0, mb);
+}else{
+  b = tightOrFull(b0, "back");
+}
+
 
     if(!f || f.width < 10 || f.height < 10) f = f0;
     if(!b || b.width < 10 || b.height < 10) b = b0;
 
-    F.file(`front_${pad3(cell.idx)}.${fmt}`, await canvasToBlob(f, fmt, q));
-    B.file(`back_${pad3(cell.idx)}.${fmt}`,  await canvasToBlob(b, fmt, q));
+    F.file(`front_${pad3(cell.idx)}.${ext}`, await canvasToBlobAsync(f, mime, q));
+    B.file(`back_${pad3(cell.idx)}.${ext}`,  await canvasToBlobAsync(b, mime, q));
+
 
     if(doPairs){
       const pair = buildPairCanvas(f,b);
-      P.file(`pair_${pad3(cell.idx)}.jpg`, await canvasToBlob(pair, "jpg", q));
+      P.file(`pair_${pad3(cell.idx)}.${ext}`, await canvasToBlobAsync(pair, mime, q));
     }
 
     exported++;
