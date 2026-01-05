@@ -70,10 +70,6 @@
       overflow:auto;
     }
 
-    .modal{
-      width:min(980px, 100%); background:#fff; border-radius:16px; border:1px solid #ddd;
-      padding:12px; max-height:82vh; overflow:auto;
-    }
     .modalHeader{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
     .modalHeader h2{ margin:0; font-size:16px; }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
@@ -261,7 +257,7 @@
         <input id="pairs" type="checkbox" checked />
       </span>
       <span class="pill"><b>Back Mapping</b>
-  <select id="backMap">
+  <select id="backMapStep4">
     <option value="none" selected>Normal</option>
     <option value="mx">Spiegel horizontal (L↔R)</option>
     <option value="my">Spiegel vertikal (O↔U)</option>
@@ -294,11 +290,35 @@
       <span>Step 5 – Export</span>
       <span id="expState" class="badge warn">wartet</span>
     </div>
+
     <div class="row">
+      <span class="pill"><b>Export</b>
+        <label style="display:inline-flex; gap:6px; align-items:center;">
+          <input type="checkbox" id="expFront" checked> Front
+        </label>
+        <label style="display:inline-flex; gap:6px; align-items:center;">
+          <input type="checkbox" id="expBack" checked> Back
+        </label>
+        <label style="display:inline-flex; gap:6px; align-items:center;">
+          <input type="checkbox" id="expPair"> Pair
+        </label>
+      </span>
+
+      <span class="pill" style="flex:1; min-width:260px;">
+        <b>Dateiname</b>
+        <input id="expBaseName" type="text" placeholder="z.B. Münzalbum rot - Seite 1" style="min-width:260px; width:100%;">
+      </span>
+
       <button id="btnExport" class="primary" disabled>ZIP Export</button>
     </div>
+
+    <p class="small muted" style="margin-top:6px;">
+      Exportname wird automatisch nummeriert: <span class="mono">DeinName_001</span>, <span class="mono">DeinName_002</span>, …
+    </p>
+
     <p id="status" class="small">Status: OpenCV.js lädt…</p>
   </div>
+
 </main>
 
 <!-- SETTINGS MODAL -->
@@ -687,6 +707,30 @@ function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function clampScale(s){ return clamp(s, 1, 6); }
 function pad3(n){ return String(n).padStart(3,"0"); }
 function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+function sanitizeFilename(s){
+  return String(s || "")
+    .replace(/[\u0000-\u001f\u007f]/g, "") // control chars
+    .replace(/[<>:"/\\|?*]/g, "-")         // forbidden
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getExportSettings(){
+  const front = !!$("expFront")?.checked;
+  const back  = !!$("expBack")?.checked;
+  const pair  = !!$("expPair")?.checked;
+
+  let base = sanitizeFilename($("expBaseName")?.value || "");
+  if(!base) base = "Export";
+
+  return { front, back, pair, base };
+}
+
+function padN(n, width){
+  const s = String(n);
+  if(s.length >= width) return s;
+  return "0".repeat(width - s.length) + s;
+}
 
 function cropRect01(srcCanvas, rect01){
   const w = srcCanvas.width, h = srcCanvas.height;
@@ -817,6 +861,46 @@ function localPoint(canvas, e){
     y:(e.clientY-r.top)*(canvas.height/r.height)
   };
 }
+function syncBackMapUI(from){
+  const s = $("backMap");        // Settings-Modal Select (speicherbar)
+  const p = $("backMapStep4");   // Preview Select (bequem)
+  if(!s || !p) return;
+
+  if(from === "preview"){
+    s.value = p.value;
+  } else if(from === "settings"){
+    p.value = s.value;
+  } else {
+    // init: Settings -> Preview
+    p.value = s.value;
+  }
+}
+
+// Live: Preview geändert -> Settings mitziehen + Preview neu anzeigen
+$("backMapStep4")?.addEventListener("change", ()=>{
+  syncBackMapUI("preview");
+
+  // sofort Effekt zeigen, wenn Preview möglich
+  if(!$("btnPreview")?.disabled){
+    $("btnPreview").click();
+  } else {
+    setStatus("Back-Zuordnung gesetzt.");
+  }
+});
+
+// Live: Settings geändert -> Preview mitziehen + Preview neu anzeigen
+$("backMap")?.addEventListener("change", ()=>{
+  syncBackMapUI("settings");
+
+  if(!$("btnPreview")?.disabled){
+    $("btnPreview").click();
+  } else {
+    setStatus("Back-Zuordnung gesetzt.");
+  }
+});
+
+// einmal initial syncen (falls Settings Default != Preview Default)
+document.addEventListener("DOMContentLoaded", ()=> syncBackMapUI());
 
 /* ----------------- Modals ----------------- */
 function openModal(backdropId){
@@ -1297,6 +1381,27 @@ function settingsApply(obj){
     else el.value = v[id];
   }
   if($("jpgqLabel") && $("jpgq")) $("jpgqLabel").textContent = $("jpgq").value;
+
+  // NEU:
+  syncBackMapUI("settings");
+}
+function mapBackIdx(frontIdx){
+  const mode = $("backMap")?.value || "none";
+  if(mode === "none") return frontIdx;
+
+  const { cols, rows } = gridDims();
+  if(cols <= 0 || rows <= 0) return frontIdx;
+
+  const i0 = frontIdx - 1;
+  const r  = Math.floor(i0 / cols);
+  const c  = i0 % cols;
+
+  let rr = r, cc = c;
+
+  if(mode === "mx" || mode === "mxy") cc = (cols - 1) - c;
+  if(mode === "my" || mode === "mxy") rr = (rows - 1) - r;
+
+  return clamp(rr * cols + cc + 1, 1, cols * rows);
 }
 
 $("btnSettingsSave")?.addEventListener("click", ()=>{
@@ -2093,20 +2198,30 @@ function buildPairCanvas(front, back){
 
 /* ===== FIX #2: Preview zeigt volle Zelle + Overlay; Pair zeigt crop ===== */
 function gridDims(){
-  // Anzahl Spalten/Zeilen aus Linien ableiten
   const cols = (S.xRel?.length || 0) + 1;
   const rows = (S.yRel?.length || 0) + 1;
   return { cols, rows };
 }
 
+function getBackMapMode(){
+  // Settings-Modal (persistiert) hat Priorität
+  const s = $("backMap");
+  if(s) return s.value || "none";
+
+  // Fallback: Step4 UI (falls Settings aus irgendeinem Grund fehlt)
+  const p = $("backMapStep4");
+  if(p) return p.value || "none";
+
+  return "none";
+}
+
 function mapBackIdx(frontIdx){
-  const mode = $("backMap")?.value || "none";
+  const mode = getBackMapMode();
   if(mode === "none") return frontIdx;
 
   const { cols, rows } = gridDims();
   if(cols <= 0 || rows <= 0) return frontIdx;
 
-  // idx -> (r,c)
   const i0 = frontIdx - 1;
   const r  = Math.floor(i0 / cols);
   const c  = i0 % cols;
@@ -2117,36 +2232,9 @@ function mapBackIdx(frontIdx){
   if(mode === "my" || mode === "mxy") rr = (rows - 1) - r; // oben↔unten
 
   const out = rr * cols + cc + 1;
-
-  // safety clamp
-  const max = cols * rows;
-  return clamp(out, 1, max);
-}
-function gridDims(){
-  const cols = (S.xRel?.length || 0) + 1;
-  const rows = (S.yRel?.length || 0) + 1;
-  return { cols, rows };
-}
-
-function mapBackIdx(frontIdx){
-  const mode = $("backMap")?.value || "none";
-  if(mode === "none") return frontIdx;
-
-  const { cols, rows } = gridDims();
-  if(cols <= 0 || rows <= 0) return frontIdx;
-
-  const i0 = frontIdx - 1;
-  const r  = Math.floor(i0 / cols);
-  const c  = i0 % cols;
-
-  let rr = r, cc = c;
-
-  if(mode === "mx" || mode === "mxy") cc = (cols - 1) - c;
-  if(mode === "my" || mode === "mxy") rr = (rows - 1) - r;
-
-  const out = rr * cols + cc + 1;
   return clamp(out, 1, cols * rows);
 }
+
 
 function runPreview(requestedIdx, allowDisabled=true){
   if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
@@ -2367,74 +2455,90 @@ function canvasToBlobAsync(canvas, mime, quality){
   });
 }
 
-
 $("btnExport").addEventListener("click", async ()=>{
   if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
   buildCells();
   if(!S.cells.length) return alert("Grid ergibt keine Zellen.");
 
+  const es = getExportSettings();
+  if(!es.front && !es.back && !es.pair){
+    alert("Bitte mindestens Front, Back oder Pair anhaken.");
+    return;
+  }
+
   const fmt = String($("fmt").value || "jpg").toLowerCase();
   const q   = parseInt($("jpgq").value,10)/100;
   const { mime, ext } = exportMimeAndExt(fmt);
 
-  const doPairs=$("pairs").checked;
+  // Nummerierung nur über die tatsächlich exportierten (aktive) Zellen
+  const activeCells = S.cells.filter(c => !S.disabledCells.has(c.idx));
+  if(activeCells.length === 0){
+    alert("Keine aktiven Zellen zum Export (alles deaktiviert).");
+    return;
+  }
 
-  const zip=new JSZip();
-  const F=zip.folder("front");
-  const B=zip.folder("back");
-  const P=doPairs ? zip.folder("pairs") : null;
+  const numWidth = Math.max(3, String(activeCells.length).length); // mind. 3-stellig
+
+  const zip = new JSZip();
+  const baseFolder = zip.folder(es.base);
+
+  // optional: Unterordner nur wenn gebraucht
+  const F = es.front ? baseFolder.folder("front") : null;
+  const B = es.back  ? baseFolder.folder("back")  : null;
+  const P = es.pair  ? baseFolder.folder("pairs") : null;
 
   setStatus("Export läuft…");
 
-  let exported=0;
-  for(const cell of S.cells){
-    if(S.disabledCells.has(cell.idx)) continue;
+  let exported = 0;
+  let seq = 0;
 
-const f0 = cropCanvas(S.work.front, cell);
+  for(const cell of activeCells){
+    // seq zählt nur aktive Zellen hoch -> Name passt zur “Seite 1_001..”
+    seq++;
+    const n = padN(seq, numWidth);
 
-const backIdx = mapBackIdx(cell.idx);
-const cellB = S.cells[backIdx-1];
-const b0 = cropCanvas(S.work.back, cellB);
+    const f0 = cropCanvas(S.work.front, cell);
 
+    const backIdx = mapBackIdx(cell.idx);
+    const cellB = S.cells[backIdx-1];
+    const b0 = cropCanvas(S.work.back, cellB);
 
-let f, b;
+    let f, b;
 
-const mf = S.manualCrop.front[cell.idx];
-const mb = S.manualCrop.back[cell.idx];
+    const mf = S.manualCrop.front[cell.idx];
+    const mb = S.manualCrop.back[cell.idx];
 
-if(mf){
-  f = cropRect01(f0, mf);
-}else{
-  f = tightOrFull(f0, "front");
-}
+    if(mf) f = cropRect01(f0, mf);
+    else   f = tightOrFull(f0, "front");
 
-if(mb){
-  b = cropRect01(b0, mb);
-}else{
-  b = tightOrFull(b0, "back");
-}
-
+    if(mb) b = cropRect01(b0, mb);
+    else   b = tightOrFull(b0, "back");
 
     if(!f || f.width < 10 || f.height < 10) f = f0;
     if(!b || b.width < 10 || b.height < 10) b = b0;
 
-    F.file(`front_${pad3(cell.idx)}.${ext}`, await canvasToBlobAsync(f, mime, q));
-    B.file(`back_${pad3(cell.idx)}.${ext}`,  await canvasToBlobAsync(b, mime, q));
-
-
-    if(doPairs){
+    // Dateinamen: <base>_<laufnr>_front.ext usw.
+    if(es.front){
+      F.file(`${es.base}_${n}_front.${ext}`, await canvasToBlobAsync(f, mime, q));
+    }
+    if(es.back){
+      B.file(`${es.base}_${n}_back.${ext}`, await canvasToBlobAsync(b, mime, q));
+    }
+    if(es.pair){
       const pair = buildPairCanvas(f,b);
-      P.file(`pair_${pad3(cell.idx)}.${ext}`, await canvasToBlobAsync(pair, mime, q));
+      P.file(`${es.base}_${n}_pair.${ext}`, await canvasToBlobAsync(pair, mime, q));
     }
 
     exported++;
-    if(exported % 5 === 0) setStatus(`Export… ${exported} Zellen…`);
+    if(exported % 5 === 0) setStatus(`Export… ${exported}/${activeCells.length}…`);
   }
 
   const outBlob = await zip.generateAsync({type:"blob"});
-  downloadBlob(outBlob, "buttongridtool_export.zip");
+  downloadBlob(outBlob, `${es.base}.zip`);
   setStatus(`Fertig. Exportiert: ${exported} Zellen (deaktiviert: ${S.disabledCells.size}).`);
 });
+
+
 
 /* Startstatus */
 setStatus("OpenCV.js lädt…");
