@@ -485,7 +485,7 @@
 
   </div>
 </div>
-<!-- /SETTINGS MODAL (WICHTIG: hier waren bei dir die Schließ-Tags kaputt!) -->
+<!-- /SETTINGS MODAL (WICHTIG: hier waren die Schließ-Tags kaputt!) -->
 
 <!-- HELP MODAL -->
 <div id="helpBackdrop" class="modalBackdrop">
@@ -1385,7 +1385,7 @@ function settingsApply(obj){
   // NEU:
   syncBackMapUI("settings");
 }
-function mapBackIdx(frontIdx){
+function map(frontIdx){
   const mode = $("backMap")?.value || "none";
   if(mode === "none") return frontIdx;
 
@@ -2105,6 +2105,29 @@ const PREVIEW = {
   drag: null,
   raf: 0
 };
+function clearStep4Preview(){
+  // Canvas leeren
+  for (const id of ["knobFront","knobBack","knobPair"]) {
+    const c = $(id);
+    if(!c) continue;
+    const ctx = c.getContext("2d");
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,c.width,c.height);
+  }
+
+  // UI zurücksetzen
+  $("prevState").textContent = "wartet";
+  $("prevState").className = "badge warn";
+  const dh = $("disabledHint");
+  if(dh) dh.style.display = "none";
+
+  // Preview-Cache invalidieren
+  PREVIEW.src.front = null;
+  PREVIEW.src.back  = null;
+  PREVIEW.fits.knobFront = null;
+  PREVIEW.fits.knobBack  = null;
+  PREVIEW.drag = null;
+}
 
 
 function drawFitTo(canvas, src, side){
@@ -2126,25 +2149,28 @@ function drawFitTo(canvas, src, side){
 
   // Overlay immer, sobald DebugOverlay an ist ODER manuelle Werte existieren
   const chk = $("debugOverlay");
-  const wantsOverlay = !!(chk && chk.checked) || !!S.manualCrop?.[side]?.[PREVIEW.idx];
+  const keyIdx = (side === "back") ? previewBackIdx() : PREVIEW.idx;
 
-  if(wantsOverlay){
-    const rect01 = getVisibleRect01(side, PREVIEW.idx, src);
-    const rp = rect01ToCanvasPx(rect01, {x,y,w,h});
-    ctx.save();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(220,0,0,0.95)";
-    ctx.strokeRect(rp.x, rp.y, rp.w, rp.h);
+const wantsOverlay =
+  !!(chk && chk.checked) ||
+  !!S.manualCrop?.[side]?.[keyIdx];
 
-    // kleine "Griffe"
-    ctx.beginPath();
-    ctx.moveTo(rp.x, rp.y + rp.h/2); ctx.lineTo(rp.x + 14, rp.y + rp.h/2);
-    ctx.moveTo(rp.x + rp.w, rp.y + rp.h/2); ctx.lineTo(rp.x + rp.w - 14, rp.y + rp.h/2);
-    ctx.moveTo(rp.x + rp.w/2, rp.y); ctx.lineTo(rp.x + rp.w/2, rp.y + 14);
-    ctx.moveTo(rp.x + rp.w/2, rp.y + rp.h); ctx.lineTo(rp.x + rp.w/2, rp.y + rp.h - 14);
-    ctx.stroke();
-    ctx.restore();
-  }
+if(wantsOverlay){
+  const rect01 = getVisibleRect01(side, keyIdx, src);
+  const rp = rect01ToCanvasPx(rect01, {x,y,w,h});
+  ctx.save();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(220,0,0,0.95)";
+  ctx.strokeRect(rp.x, rp.y, rp.w, rp.h);
+
+  ctx.beginPath();
+  ctx.moveTo(rp.x, rp.y + rp.h/2); ctx.lineTo(rp.x + 14, rp.y + rp.h/2);
+  ctx.moveTo(rp.x + rp.w, rp.y + rp.h/2); ctx.lineTo(rp.x + rp.w - 14, rp.y + rp.h/2);
+  ctx.moveTo(rp.x + rp.w/2, rp.y); ctx.lineTo(rp.x + rp.w/2, rp.y + 14);
+  ctx.moveTo(rp.x + rp.w/2, rp.y + rp.h); ctx.lineTo(rp.x + rp.w/2, rp.y + rp.h - 14);
+  ctx.stroke();
+  ctx.restore();
+}
 }
 function redrawPreviewSide(side){
   const src = PREVIEW.src?.[side];
@@ -2235,6 +2261,10 @@ function mapBackIdx(frontIdx){
   return clamp(out, 1, cols * rows);
 }
 
+function previewBackIdx(){
+  return mapBackIdx(PREVIEW.idx);
+}
+
 
 function runPreview(requestedIdx, allowDisabled=true){
   if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
@@ -2277,7 +2307,8 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
   let f, b;
 
   const mf = S.manualCrop.front[idx];
-  const mb = S.manualCrop.back[idx];
+  const mb = S.manualCrop.back[backIdx];
+
 
   if(mf){ f = cropRect01(f0, mf); } else { f = tightOrFull(f0, "front"); }
   if(mb){ b = cropRect01(b0, mb); } else { b = tightOrFull(b0, "back"); }
@@ -2338,6 +2369,54 @@ $("idx").addEventListener("keydown", (e)=>{
   $("idx").value = next;
   runPreview(next, false); // auto-preview, deaktivierte überspringen
 });
+// --- idx: Navigation & Preview ---
+let idxAutoTimer = 0;
+
+// Enter + ArrowUp/Down (Tastatur)
+$("idx").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter"){
+    e.preventDefault();
+    $("btnPreview").click();
+    return;
+  }
+  if(e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+
+  e.preventDefault();
+
+  if(!S.cells || !S.cells.length){
+    buildCells();
+    if(!S.cells.length) return;
+  }
+
+  const cur = clamp(parseInt($("idx").value||"1",10), 1, S.cells.length);
+  const dir = (e.key === "ArrowUp") ? +1 : -1;
+
+  const next = nextEnabledIdx(cur, dir);
+  $("idx").value = next;
+  runPreview(next, false); // auto: deaktivierte überspringen
+});
+
+// "input" feuert bei Stepper UND beim Tippen.
+// -> Wir machen: kurz warten. Wenn nur "Tippen" -> nur schwarz lassen.
+// -> Wenn Stepper / "fertige Zahl" -> auto preview.
+$("idx").addEventListener("input", (e)=>{
+  clearStep4Preview();
+
+  // debounced auto-preview (wichtig für Stepper & schnelle Klicks)
+  if(idxAutoTimer) clearTimeout(idxAutoTimer);
+  idxAutoTimer = setTimeout(()=>{
+    idxAutoTimer = 0;
+    if($("btnPreview")?.disabled) return;
+
+    // Wenn der User gerade mitten im Tippen ist (leeres Feld etc.) -> nix tun
+    const v = String($("idx").value||"").trim();
+    if(!v) return;
+
+    // Stepper-Usecase: sofort anzeigen (deaktivierte überspringen)
+    runPreview(v, false);
+  }, 120);
+});
+
 
 function previewLocalPoint(canvas, e){
   const r=canvas.getBoundingClientRect();
@@ -2361,7 +2440,8 @@ function handlePreviewPointerDown(e, side){
   const src = PREVIEW.src?.[side];
   if(!src) return;
 
-  const rect01 = S.manualCrop[side][PREVIEW.idx] || getVisibleRect01(side, PREVIEW.idx, src);
+  const keyIdx = (side === "back") ? previewBackIdx() : PREVIEW.idx;
+  const rect01 = S.manualCrop[side][keyIdx] || getVisibleRect01(side, keyIdx, src);
   const rp = rect01ToCanvasPx(rect01, fit);
   const edge = hitTestEdge(p.x, p.y, rp, 14);
   if(!edge) return;
@@ -2374,12 +2454,13 @@ function handlePreviewPointerDown(e, side){
     startX: p.x,
     startY: p.y,
     startRect: rect01,
-    fit
+    fit,
+    moved: false
   };
 
-  // ab jetzt ist es definitiv manuell
-  S.manualCrop[side][PREVIEW.idx] = rect01;
+  // NICHT hier speichern – erst wenn wirklich gezogen wurde
 }
+
 
 function handlePreviewPointerMove(e){
   if(!PREVIEW.drag) return;
@@ -2394,8 +2475,19 @@ function handlePreviewPointerMove(e){
   const dx01 = dxPx / (d.fit.w || 1);
   const dy01 = dyPx / (d.fit.h || 1);
 
-  const next = updateRectEdge(d.startRect, d.edge, dx01, dy01, 0.08);
-  S.manualCrop[d.side][PREVIEW.idx] = next;
+  // erst ab echtem Move als "manual" zählen
+  if(!d.moved && Math.hypot(dxPx, dyPx) > 3){
+    d.moved = true;
+    const keyIdx = (d.side === "back") ? previewBackIdx() : PREVIEW.idx;
+    S.manualCrop[d.side][keyIdx] = d.startRect; // ab jetzt existiert ein manualCrop
+  }
+
+  if(d.moved){
+    const next = updateRectEdge(d.startRect, d.edge, dx01, dy01, 0.08);
+    const keyIdx = (d.side === "back") ? previewBackIdx() : PREVIEW.idx;
+    S.manualCrop[d.side][keyIdx] = next;
+  }
+
 
   // nur redraw, nicht neu rechnen (sonst Lag)
   if(PREVIEW.raf) cancelAnimationFrame(PREVIEW.raf);
@@ -2492,30 +2584,32 @@ $("btnExport").addEventListener("click", async ()=>{
   let exported = 0;
   let seq = 0;
 
-  for(const cell of activeCells){
-    // seq zählt nur aktive Zellen hoch -> Name passt zur “Seite 1_001..”
-    seq++;
-    const n = padN(seq, numWidth);
+for(const cell of activeCells){
+  seq++;
+  const n = padN(seq, numWidth);
 
-    const f0 = cropCanvas(S.work.front, cell);
+  const f0 = cropCanvas(S.work.front, cell);
 
-    const backIdx = mapBackIdx(cell.idx);
-    const cellB = S.cells[backIdx-1];
-    const b0 = cropCanvas(S.work.back, cellB);
+  const backIdx = mapBackIdx(cell.idx);     // <-- EINMAL hier
+  const cellB = S.cells[backIdx - 1];
+  const b0 = cropCanvas(S.work.back, cellB);
 
-    let f, b;
+  let f, b;
 
-    const mf = S.manualCrop.front[cell.idx];
-    const mb = S.manualCrop.back[cell.idx];
+  const mf = S.manualCrop.front[cell.idx];
+  const mb = S.manualCrop.back[backIdx];    // <-- hier nur verwenden
 
-    if(mf) f = cropRect01(f0, mf);
-    else   f = tightOrFull(f0, "front");
+  if(mf) f = cropRect01(f0, mf);
+  else   f = tightOrFull(f0, "front");
 
-    if(mb) b = cropRect01(b0, mb);
-    else   b = tightOrFull(b0, "back");
+  if(mb) b = cropRect01(b0, mb);
+  else   b = tightOrFull(b0, "back");
 
-    if(!f || f.width < 10 || f.height < 10) f = f0;
-    if(!b || b.width < 10 || b.height < 10) b = b0;
+  if(!f || f.width < 10 || f.height < 10) f = f0;
+  if(!b || b.width < 10 || b.height < 10) b = b0;
+
+  // ... dann Datei schreiben (Front/Back/Pair) wie gehabt
+
 
     // Dateinamen: <base>_<laufnr>_front.ext usw.
     if(es.front){
