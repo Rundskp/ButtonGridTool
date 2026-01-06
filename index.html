@@ -2346,29 +2346,34 @@ function nextEnabledIdx(fromIdx, dir){
 }
 
 $("idx").addEventListener("keydown", (e)=>{
- // Enter = wie Preview-Button klicken
   if(e.key === "Enter"){
     e.preventDefault();
-    $("btnPreview").click();  // ruft runPreview(..., true) so wie der Button
+    e.stopImmediatePropagation();
+    $("btnPreview").click();
     return;
   }
+
   if(e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
 
+  // NUMMER-INPUT macht sonst oft "selbst noch einmal weiter"
   e.preventDefault();
+  e.stopImmediatePropagation();
 
   if(!S.cells || !S.cells.length){
     buildCells();
     if(!S.cells.length) return;
   }
 
-  const cur = clamp(parseInt($("idx").value||"1",10), 1, S.cells.length);
   const dir = (e.key === "ArrowUp") ? +1 : -1;
 
+  // WICHTIG: nicht aus dem Input lesen (kann schon vom Browser verändert sein)
+  const cur  = clamp(PREVIEW.idx || parseInt($("idx").value||"1",10), 1, S.cells.length);
   const next = nextEnabledIdx(cur, dir);
 
   $("idx").value = next;
   runPreview(next, false); // auto-preview, deaktivierte überspringen
 });
+
 // --- idx: Navigation & Preview ---
 let idxAutoTimer = 0;
 
