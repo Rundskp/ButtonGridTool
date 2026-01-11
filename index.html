@@ -247,9 +247,14 @@
     </div>
 
     <div class="row">
+      <button id="btnPrev" disabled>◀︎</button>
+
       <span class="pill"><b>Knopf #</b>
         <input id="idx" type="number" value="1" min="1" step="1" style="width:90px;">
       </span>
+
+      <button id="btnNext" disabled>▶︎</button>
+      
       <button id="btnPreview" class="primary" disabled>Preview</button>
       <button id="btnResetCrop" disabled>Reset Crop</button>
       <span id="disabledHint" class="badge warn" style="display:none;">deaktiviert</span>
@@ -1594,6 +1599,8 @@ $("btnGridApply").addEventListener("click", ()=>{
     $("btnPreview").disabled = !ok;
     $("btnExport").disabled  = !ok;
     $("btnResetCrop").disabled = !ok;
+    $("btnPrev").disabled = !ok;
+    $("btnNext").disabled = !ok;
 
     $("prevState").textContent = ok ? "bereit" : "wartet";
     $("prevState").className = ok ? "badge ok" : "badge warn";
@@ -2344,6 +2351,44 @@ function nextEnabledIdx(fromIdx, dir){
     if(!S.disabledCells.has(i)) return i;  // nächste aktive
   }
 }
+function step4Go(dir){
+  if(!S.cells || !S.cells.length){
+    buildCells();
+    if(!S.cells.length) return;
+  }
+  const cur  = clamp(PREVIEW.idx || parseInt($("idx").value||"1",10), 1, S.cells.length);
+  const next = nextEnabledIdx(cur, dir);
+
+  $("idx").value = next;
+  runPreview(next, false); // deaktivierte überspringen
+}
+
+$("btnPrev")?.addEventListener("click", ()=> step4Go(-1));
+$("btnNext")?.addEventListener("click", ()=> step4Go(+1));
+
+function repeatWhileHeld(btnId, dir){
+  const btn = $(btnId);
+  if(!btn) return;
+
+  let t = null;
+
+  const start = (e)=>{
+    e.preventDefault();
+    step4Go(dir);
+    t = setInterval(()=> step4Go(dir), 180);
+  };
+  const stop = ()=>{
+    if(t){ clearInterval(t); t=null; }
+  };
+
+  btn.addEventListener("pointerdown", start);
+  btn.addEventListener("pointerup", stop);
+  btn.addEventListener("pointercancel", stop);
+  btn.addEventListener("pointerleave", stop);
+}
+
+repeatWhileHeld("btnPrev", -1);
+repeatWhileHeld("btnNext", +1);
 
 $("idx").addEventListener("keydown", (e)=>{
   if(e.key === "Enter"){
