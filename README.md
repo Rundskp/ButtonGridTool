@@ -26,6 +26,8 @@ Das Tool läuft vollständig im Browser (kein Upload, keine Serververbindung nö
 
 Einfach die `index.html` öffnen oder über GitHub Pages verwenden.
 
+Anleitung auf Youtube:
+https://youtu.be/rLk3ZUPBafQ
 ---
 
 ## Lizenz
