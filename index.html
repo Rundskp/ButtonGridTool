@@ -220,7 +220,6 @@
       </span>
 
       <button id="btnUndo" disabled>↩︎ Schritt zurück</button>
-      <button id="btnGridResetView" class="toolbtn" disabled>Reset View</button>
 
       <button id="btnGridClear" class="danger" disabled>Alles löschen</button>
       <button id="btnGridSave" disabled>Save</button>
@@ -270,22 +269,45 @@
   </select>
 </span>
 
+      <span class="pill"><b>Weiß</b>
+        <label style="display:inline-flex; gap:6px; align-items:center;">
+          <input type="checkbox" id="whiteBg"> BG entfernen
+        </label>
+      </span>
+
+      <button id="btnPairRotate" disabled title="Pair-Layout drehen (Front+Back je 90°)">⟳ Pair</button>
+
     </div>
 
     <div class="split">
       <div>
-        <p class="small"><b>Front</b></p>
-        <canvas id="knobFront" width="900" height="450"></canvas>
+        <div class="row" style="justify-content:space-between; align-items:center; margin:0 0 6px 0;">
+          <p class="small" style="margin:0;"><b>Front</b></p>
+          <button id="togFront" type="button" class="" style="padding:6px 10px;">▾</button>
+        </div>
+        <div id="wrapFront">
+          <canvas id="knobFront" width="900" height="450"></canvas>
+        </div>
       </div>
       <div>
-        <p class="small"><b>Back</b></p>
-        <canvas id="knobBack" width="900" height="450"></canvas>
+        <div class="row" style="justify-content:space-between; align-items:center; margin:0 0 6px 0;">
+          <p class="small" style="margin:0;"><b>Back</b></p>
+          <button id="togBack" type="button" class="" style="padding:6px 10px;">▾</button>
+        </div>
+        <div id="wrapBack">
+          <canvas id="knobBack" width="900" height="450"></canvas>
+        </div>
       </div>
     </div>
 
     <div style="margin-top:10px;">
-      <p class="small" id="pairLabel"><b>Pair</b> (Front+Back)</p>
-      <canvas id="knobPair" width="1200" height="450"></canvas>
+      <div class="row" style="justify-content:space-between; align-items:center; margin:0 0 6px 0;">
+        <p class="small" id="pairLabel" style="margin:0;"><b>Pair</b> (Front+Back)</p>
+        <button id="togPair" type="button" class="" style="padding:6px 10px;">▾</button>
+      </div>
+      <div id="wrapPair">
+        <canvas id="knobPair" width="1200" height="450"></canvas>
+      </div>
     </div>
   </div>
 
@@ -392,6 +414,26 @@
     </select>
   </span>
 </div>
+
+    <div class="hr"></div>
+
+    <p class="small"><b>Preview / Export – Darstellung</b></p>
+    <div class="row">
+      <span class="pill">
+        <b>Hintergrund weiß machen</b>
+        <input id="setWhiteBg" type="checkbox">
+      </span>
+
+      <span class="pill">
+        <b>Autorotation (Layout)</b>
+        <input id="setAutoLayout" type="checkbox" checked>
+      </span>
+
+      <span class="pill">
+        <b>Kanten weich (px)</b>
+        <input id="feather" type="number" value="12" min="0" max="80" step="1" style="width:90px;">
+      </span>
+    </div>
 
     <p class="small"><b>Objekt automatisch zuschneiden</b></p>
     <div class="row">
@@ -720,6 +762,19 @@ function sanitizeFilename(s){
     .trim();
 }
 
+// 4 Punkte beliebiger Reihenfolge -> TL,TR,BR,BL
+function orderQuad(pts){
+  const p = pts.map(q=>({x:Number(q.x), y:Number(q.y)}));
+  if(p.length !== 4) return p;
+  const s = p.map(q=>q.x+q.y);
+  const d = p.map(q=>q.x-q.y);
+  const tl = p[s.indexOf(Math.min(...s))];
+  const br = p[s.indexOf(Math.max(...s))];
+  const tr = p[d.indexOf(Math.max(...d))];
+  const bl = p[d.indexOf(Math.min(...d))];
+  return [tl,tr,br,bl];
+}
+
 function getExportSettings(){
   const front = !!$("expFront")?.checked;
   const back  = !!$("expBack")?.checked;
@@ -798,7 +853,7 @@ function rect01ToCanvasPx(rect01, fit){
   return { x:x0, y:y0, w:(x1-x0), h:(y1-y0) };
 }
 
-function hitTestEdge(px, py, rectPx, tol=12){
+function hitTestEdge(px, py, rectPx, tol=22){
   const x = rectPx.x, y = rectPx.y, w = rectPx.w, h = rectPx.h;
   const onL = Math.abs(px - x) <= tol && py >= y - tol && py <= y + h + tol;
   const onR = Math.abs(px - (x+w)) <= tol && py >= y - tol && py <= y + h + tol;
@@ -905,7 +960,12 @@ $("backMap")?.addEventListener("change", ()=>{
 });
 
 // einmal initial syncen (falls Settings Default != Preview Default)
-document.addEventListener("DOMContentLoaded", ()=> syncBackMapUI());
+document.addEventListener("DOMContentLoaded", ()=>{
+  syncBackMapUI();
+  // Step4: Global-Settings → Preview (falls noch kein Override)
+  if($("whiteBg")) $("whiteBg").checked = getGlobalWhiteBg();
+  updatePairRotateLabel(parseInt($("idx")?.value||"1",10) || 1);
+});
 
 /* ----------------- Modals ----------------- */
 function openModal(backdropId){
@@ -1059,6 +1119,8 @@ const S = {
   pan:null,
 
   work: { front:null, back:null, mode:"none" },
+  // Step 1/2: Entzerren-Preview aktiv? (damit "Ohne Entzerren" sauber zurücksetzen kann)
+  warpPreview: { front:false, back:false },
   xRel:[],
   yRel:[],
   disabledCells:new Set(),
@@ -1078,6 +1140,20 @@ const S = {
   manualCrop: {
     front: {}, // key: idx -> {l,t,r,b}
     back:  {}
+  },
+
+  // Step 4: lokale Overrides (nur aktuelles Bild)
+  // key: Front-Idx (1..N)
+  previewOverrides: {
+    whiteBg: {},    // idx -> bool
+    pairTurns: {}   // idx -> 0..3
+  },
+
+  // Step 4 UI
+  ui: {
+    collapseFront:false,
+    collapseBack:false,
+    collapsePair:false
   }
 };
 
@@ -1154,8 +1230,19 @@ $("btnFrontWarp").addEventListener("click", ()=> warpPaper("front"));
 $("btnBackWarp").addEventListener("click", ()=> warpPaper("back"));
 $("btnFrontSkipWarp").addEventListener("click", ()=> useRaw("front"));
 $("btnBackSkipWarp").addEventListener("click", ()=> useRaw("back"));
-$("btnFrontResetView").addEventListener("click", ()=>{ S.view.front={scale:1,ox:0,oy:0}; renderPhoto("front"); });
-$("btnBackResetView").addEventListener("click", ()=>{ S.view.back ={scale:1,ox:0,oy:0}; renderPhoto("back"); });
+
+function resetPhotoToLoaded(which){
+  // so wie direkt nach dem Laden: keine Overlay-Punkte, keine Warp-Preview, View neutral
+  S.pts[which] = [];
+  S.warpPreview[which] = false;
+  S.view[which] = {scale:1, ox:0, oy:0};
+  if(which==="front") $("btnFrontWarp").disabled = true;
+  else $("btnBackWarp").disabled = true;
+  renderPhoto(which);
+}
+
+$("btnFrontResetView").addEventListener("click", ()=> resetPhotoToLoaded("front"));
+$("btnBackResetView").addEventListener("click", ()=> resetPhotoToLoaded("back"));
 
 function startManual(which){
   S.pts[which]=[];
@@ -1175,7 +1262,9 @@ function hookPhotoCanvas(which){
 
 function renderPhoto(which){
   const canvas = which==="front" ? $("frontCanvas") : $("backCanvas");
-  const img = which==="front" ? S.frontImg : S.backImg;
+  const raw = which==="front" ? S.frontImg : S.backImg;
+  const preview = S.warpPreview?.[which] ? (which==="front" ? S.work.front : S.work.back) : null;
+  const img = preview || raw;
   const ctx=canvas.getContext("2d");
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -1185,14 +1274,16 @@ function renderPhoto(which){
   const baseW = img.width*baseR, baseH = img.height*baseR;
   const baseX = (canvas.width-baseW)/2, baseY = (canvas.height-baseH)/2;
 
-  const v=S.view[which];
+  // Bei Warp-Preview erzwingen wir eine "saubere" Ansicht ohne Zoom/Pan.
+  const v = preview ? {scale:1, ox:0, oy:0} : S.view[which];
   ctx.save();
   ctx.translate(baseX+v.ox, baseY+v.oy);
   ctx.scale(v.scale, v.scale);
   ctx.drawImage(img, 0,0, baseW, baseH);
   ctx.restore();
 
-  drawPhotoOverlay(which, {baseR, baseX, baseY});
+  // Overlay nur bei Raw-Ansicht (Eckenpunkte etc.)
+  if(!preview) drawPhotoOverlay(which, {baseR, baseX, baseY});
 }
 
 function imgToView(which, pImg, fit){
@@ -1360,6 +1451,7 @@ function photoPointerUp(which, canvas, e){
 /* ----------------- Settings Save/Load ----------------- */
 const SETTINGS_IDS = [
   "fmt","jpgq","gridPad","tight",
+  "setWhiteBg","setAutoLayout","feather",
   "edgeRun","edgeOff",
   "fThrT","fFillT","fThrR","fFillR","fThrB","fFillB","fThrL","fFillL",
   "bThrT","bFillT","bThrR","bFillR","bThrB","bFillB","bThrL","bFillL",
@@ -1389,6 +1481,13 @@ function settingsApply(obj){
 
   // NEU:
   syncBackMapUI("settings");
+
+  // Preview-UI spiegeln (nur wenn kein lokales Override existiert)
+  const idx = PREVIEW.idx || parseInt($("idx")?.value || "1", 10) || 1;
+  const o = S.previewOverrides?.whiteBg;
+  if(!(o && Object.prototype.hasOwnProperty.call(o, idx))){
+    if($("whiteBg")) $("whiteBg").checked = getGlobalWhiteBg();
+  }
 }
 function map(frontIdx){
   const mode = $("backMap")?.value || "none";
@@ -1440,7 +1539,6 @@ function enableGridUI(){
     $("gridState").className = readyBack ? "badge ok" : "badge warn";
 
     $("btnUndo").disabled = false;
-    $("btnGridResetView").disabled = false;
     $("btnGridClear").disabled = false;
     $("btnGridSave").disabled = false;
     $("btnGridLoad").disabled = false;
@@ -1457,6 +1555,10 @@ function enableGridUI(){
 function useRaw(which){
   if(which==="front" && !S.frontImg) return;
   if(which==="back" && !S.backImg) return;
+
+  // Wenn der User gerade eine Warp-Preview sieht und dann "Ohne Entzerren" klickt,
+  // wollen wir exakt zurück zu "wie nach dem Laden".
+  if(S.warpPreview?.[which]) resetPhotoToLoaded(which);
 
   S.work.mode = "raw";
   if(which==="front"){
@@ -1495,13 +1597,17 @@ async function warpPaper(which){
   setStatus(`${which.toUpperCase()}: Entzerren läuft… (${paper.label})`);
 
   try{
+    // Robust: selbst wenn der User die 4 Punkte nicht perfekt in TL→TR→BR→BL setzt,
+    // sortieren wir sie hier sauber. Das verhindert "spiegeln" / "verdrehen" im Grid.
+    const ordered = orderQuad(pts);
+
     const src = canvasToCvSrc(img);
 
     const srcTri = cv.matFromArray(4,1,cv.CV_32FC2,[
-      pts[0].x, pts[0].y,
-      pts[1].x, pts[1].y,
-      pts[2].x, pts[2].y,
-      pts[3].x, pts[3].y
+      ordered[0].x, ordered[0].y,
+      ordered[1].x, ordered[1].y,
+      ordered[2].x, ordered[2].y,
+      ordered[3].x, ordered[3].y
     ]);
     const W = paper.w, H = paper.h;
     const dstTri = cv.matFromArray(4,1,cv.CV_32FC2,[ 0,0,  W,0,  W,H,  0,H ]);
@@ -1518,15 +1624,19 @@ async function warpPaper(which){
     S.work.mode="warp";
     if(which==="front"){
       S.work.front = outCanvas;
+      S.warpPreview.front = true;
       $("frontState").textContent="entzerrt";
       $("frontState").className="badge ok";
     } else {
       S.work.back = outCanvas;
+      S.warpPreview.back = true;
       $("backState").textContent="entzerrt";
       $("backState").className="badge ok";
     }
 
     enableGridUI();
+    // Preview direkt zeigen (Step 1/2 Canvas)
+    renderPhoto(which);
     setStatus(`${which.toUpperCase()}: entzerrt (${paper.label}).`);
   }catch(err){
     console.error(err);
@@ -1536,8 +1646,6 @@ async function warpPaper(which){
 }
 
 /* ----------------- Grid ----------------- */
-$("btnGridResetView").addEventListener("click", ()=>{ S.view.grid={scale:1,ox:0,oy:0}; renderGrid(); });
-
 $("btnGridClear").addEventListener("click", ()=>{
   S.xRel=[]; S.yRel=[];
   S.disabledCells.clear();
@@ -1601,6 +1709,7 @@ $("btnGridApply").addEventListener("click", ()=>{
     $("btnResetCrop").disabled = !ok;
     $("btnPrev").disabled = !ok;
     $("btnNext").disabled = !ok;
+    $("btnPairRotate").disabled = !ok;
 
     $("prevState").textContent = ok ? "bereit" : "wartet";
     $("prevState").className = ok ? "badge ok" : "badge warn";
@@ -2112,6 +2221,15 @@ const PREVIEW = {
   drag: null,
   raf: 0
 };
+
+function updatePairRotateLabel(idx){
+  const b = $("btnPairRotate");
+  if(!b) return;
+  const i = idx || PREVIEW.idx || 1;
+  const deg = (getPairTurnsForIdx(i) % 4) * 90;
+  b.textContent = deg ? `⟳ Pair ${deg}°` : "⟳ Pair";
+}
+updatePairRotateLabel(1);
 function clearStep4Preview(){
   // Canvas leeren
   for (const id of ["knobFront","knobBack","knobPair"]) {
@@ -2135,6 +2253,37 @@ function clearStep4Preview(){
   PREVIEW.fits.knobBack  = null;
   PREVIEW.drag = null;
 }
+
+function setCollapsed(which, collapsed){
+  if(!S.ui) S.ui = { collapseFront:false, collapseBack:false, collapsePair:false };
+  const map = {
+    front:{wrap:"wrapFront", btn:"togFront", key:"collapseFront"},
+    back :{wrap:"wrapBack",  btn:"togBack",  key:"collapseBack"},
+    pair :{wrap:"wrapPair",  btn:"togPair",  key:"collapsePair"}
+  };
+  const m = map[which];
+  if(!m) return;
+  S.ui[m.key] = !!collapsed;
+  const w = $(m.wrap);
+  const b = $(m.btn);
+  if(w) w.style.display = collapsed ? "none" : "block";
+  if(b) b.textContent = collapsed ? "▸" : "▾";
+}
+
+function toggleCollapsed(which){
+  const key = (which==="front") ? "collapseFront" : (which==="back") ? "collapseBack" : "collapsePair";
+  const cur = !!(S.ui && S.ui[key]);
+  setCollapsed(which, !cur);
+}
+
+$("togFront")?.addEventListener("click", ()=> toggleCollapsed("front"));
+$("togBack")?.addEventListener("click", ()=> toggleCollapsed("back"));
+$("togPair")?.addEventListener("click", ()=> toggleCollapsed("pair"));
+
+// Initial UI state
+setCollapsed("front", !!S.ui?.collapseFront);
+setCollapsed("back",  !!S.ui?.collapseBack);
+setCollapsed("pair",  !!S.ui?.collapsePair);
 
 
 function drawFitTo(canvas, src, side){
@@ -2170,12 +2319,26 @@ if(wantsOverlay){
   ctx.strokeStyle = "rgba(220,0,0,0.95)";
   ctx.strokeRect(rp.x, rp.y, rp.w, rp.h);
 
+  // Greifpunkte (größer, iPhone-tauglich)
+  const L = 28;
+  const R = 10;
+  const mx = rp.x + rp.w/2;
+  const my = rp.y + rp.h/2;
+
   ctx.beginPath();
-  ctx.moveTo(rp.x, rp.y + rp.h/2); ctx.lineTo(rp.x + 14, rp.y + rp.h/2);
-  ctx.moveTo(rp.x + rp.w, rp.y + rp.h/2); ctx.lineTo(rp.x + rp.w - 14, rp.y + rp.h/2);
-  ctx.moveTo(rp.x + rp.w/2, rp.y); ctx.lineTo(rp.x + rp.w/2, rp.y + 14);
-  ctx.moveTo(rp.x + rp.w/2, rp.y + rp.h); ctx.lineTo(rp.x + rp.w/2, rp.y + rp.h - 14);
+  ctx.moveTo(rp.x, my); ctx.lineTo(rp.x + L, my);
+  ctx.moveTo(rp.x + rp.w, my); ctx.lineTo(rp.x + rp.w - L, my);
+  ctx.moveTo(mx, rp.y); ctx.lineTo(mx, rp.y + L);
+  ctx.moveTo(mx, rp.y + rp.h); ctx.lineTo(mx, rp.y + rp.h - L);
   ctx.stroke();
+
+  ctx.fillStyle = "rgba(220,0,0,0.85)";
+  ctx.beginPath();
+  ctx.arc(rp.x, my, R, 0, Math.PI*2);
+  ctx.arc(rp.x + rp.w, my, R, 0, Math.PI*2);
+  ctx.arc(mx, rp.y, R, 0, Math.PI*2);
+  ctx.arc(mx, rp.y + rp.h, R, 0, Math.PI*2);
+  ctx.fill();
   ctx.restore();
 }
 }
@@ -2218,15 +2381,155 @@ function drawDebugOverlay(canvas, src, fit){
   ctx.restore();
 }
 
-function buildPairCanvas(front, back){
+function rotateCanvasTurns(src, turns){
+  const t = ((turns % 4) + 4) % 4;
+  if(!t) return src;
+
+  const out = document.createElement("canvas");
+  if(t === 2){
+    out.width = src.width;
+    out.height = src.height;
+  }else{
+    out.width = src.height;
+    out.height = src.width;
+  }
+  const ctx = out.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0,0,out.width,out.height);
+  ctx.translate(out.width/2, out.height/2);
+  ctx.rotate(t * Math.PI/2);
+  ctx.drawImage(src, -src.width/2, -src.height/2);
+  return out;
+}
+
+function buildPairCanvas(front, back, mode="H"){
+  const m = (mode === "V") ? "V" : "H";
   const pair=document.createElement("canvas");
-  pair.width = front.width + back.width;
-  pair.height = Math.max(front.height, back.height);
+  if(m === "V"){
+    pair.width = Math.max(front.width, back.width);
+    pair.height = front.height + back.height;
+  }else{
+    pair.width = front.width + back.width;
+    pair.height = Math.max(front.height, back.height);
+  }
   const pctx=pair.getContext("2d");
   pctx.fillStyle="#fff"; pctx.fillRect(0,0,pair.width,pair.height);
-  pctx.drawImage(front,0,0);
-  pctx.drawImage(back,front.width,0);
+  if(m === "V"){
+    pctx.drawImage(front,0,0);
+    pctx.drawImage(back,0,front.height);
+  }else{
+    pctx.drawImage(front,0,0);
+    pctx.drawImage(back,front.width,0);
+  }
   return pair;
+}
+
+function pickAutoPairLayout(front, back){
+  // Ziel: keine "Panoramas" → Layout wählen, das am ehesten quadratisch wirkt.
+  // Wir vergleichen H und V und nehmen die Variante mit weniger "Extrem".
+  const wH = front.width + back.width;
+  const hH = Math.max(front.height, back.height);
+  const wV = Math.max(front.width, back.width);
+  const hV = front.height + back.height;
+
+  const score = (w,h)=>{
+    const a = w/h;
+    return Math.max(a, 1/a); // 1 = perfekt quadratisch
+  };
+
+  return (score(wV,hV) < score(wH,hH)) ? "V" : "H";
+}
+
+function approxBgColor(canvas){
+  const ctx = canvas.getContext("2d", { willReadFrequently:true });
+  const w = canvas.width, h = canvas.height;
+  const samples = [];
+  const take = (x,y)=>{
+    const d = ctx.getImageData(x,y,1,1).data;
+    samples.push([d[0],d[1],d[2]]);
+  };
+  // 4 Ecken + 8 Randpunkte
+  take(0,0); take(w-1,0); take(w-1,h-1); take(0,h-1);
+  take(Math.floor(w*0.5),0);
+  take(Math.floor(w*0.5),h-1);
+  take(0,Math.floor(h*0.5));
+  take(w-1,Math.floor(h*0.5));
+  take(Math.floor(w*0.1),Math.floor(h*0.1));
+  take(Math.floor(w*0.9),Math.floor(h*0.1));
+  take(Math.floor(w*0.9),Math.floor(h*0.9));
+  take(Math.floor(w*0.1),Math.floor(h*0.9));
+
+  // Median je Kanal (robust gegen "Objekt berührt Ecke")
+  const med = (arr, i)=>{
+    const a = arr.map(v=>v[i]).sort((a,b)=>a-b);
+    return a[Math.floor(a.length/2)] || 255;
+  };
+  return { r: med(samples,0), g: med(samples,1), b: med(samples,2) };
+}
+
+function getGlobalWhiteBg(){
+  return !!$("setWhiteBg")?.checked;
+}
+function getGlobalAutoLayout(){
+  return !!$("setAutoLayout")?.checked;
+}
+function getFeatherPx(){
+  return clamp(parseInt($("feather")?.value || "0", 10) || 0, 0, 120);
+}
+
+function isWhiteBgForIdx(idx){
+  const o = S.previewOverrides?.whiteBg;
+  if(o && Object.prototype.hasOwnProperty.call(o, idx)) return !!o[idx];
+  return getGlobalWhiteBg();
+}
+
+function getPairTurnsForIdx(idx){
+  const o = S.previewOverrides?.pairTurns;
+  if(o && Object.prototype.hasOwnProperty.call(o, idx)) return (parseInt(o[idx],10) || 0) % 4;
+  return 0;
+}
+
+function whitenBackground(srcCanvas){
+  // Ziel: Hintergrund (nahe am Rand-Hintergrund) -> reines Weiß, Objekt bleibt.
+  const out = document.createElement("canvas");
+  out.width = srcCanvas.width;
+  out.height = srcCanvas.height;
+  const ctx = out.getContext("2d", { willReadFrequently:true });
+  ctx.drawImage(srcCanvas, 0, 0);
+
+  const bg = approxBgColor(out);
+  const img = ctx.getImageData(0,0,out.width,out.height);
+  const d = img.data;
+
+  // Toleranzen: lieber etwas konservativer (Objekt nicht ausfransen)
+  const thr = 38;                  // RGB-Distanz
+  const feather = getFeatherPx();  // weicher Übergang zum Weiß
+  const thr2 = thr*thr;
+  const thrF = thr + feather;
+  const thrF2 = thrF*thrF;
+
+  for(let i=0;i<d.length;i+=4){
+    const dr = d[i]   - bg.r;
+    const dg = d[i+1] - bg.g;
+    const db = d[i+2] - bg.b;
+    const dist2 = dr*dr + dg*dg + db*db;
+    if(dist2 <= thr2){
+      d[i] = 255; d[i+1] = 255; d[i+2] = 255;
+    }else if(feather > 0 && dist2 <= thrF2){
+      const dist = Math.sqrt(dist2);
+      const a = (thrF - dist) / feather; // 0..1
+      d[i]   = Math.round(d[i]   * (1-a) + 255 * a);
+      d[i+1] = Math.round(d[i+1] * (1-a) + 255 * a);
+      d[i+2] = Math.round(d[i+2] * (1-a) + 255 * a);
+    }
+  }
+  ctx.putImageData(img,0,0);
+  return out;
+}
+
+function maybeWhiten(canvas, idx){
+  if(!isWhiteBgForIdx(idx)) return canvas;
+  return whitenBackground(canvas);
 }
 
 /* ===== FIX #2: Preview zeigt volle Zelle + Overlay; Pair zeigt crop ===== */
@@ -2323,6 +2626,13 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
   if(!f || f.width < 10 || f.height < 10) f = f0;
   if(!b || b.width < 10 || b.height < 10) b = b0;
 
+  // Preview-Optionen: global aus Settings, aber pro Bild overridbar
+  const wOpt = $("whiteBg");
+  if(wOpt) wOpt.checked = isWhiteBgForIdx(idx);
+
+  const fExp = maybeWhiten(f, idx);
+  const bExp = maybeWhiten(b, idx);
+
   // Front/Back: volle Zelle + Overlay (wenn aktiv)
   drawFitTo($("knobFront"), f0, "front");
   drawFitTo($("knobBack"),  b0, "back");
@@ -2332,8 +2642,14 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
   $("pairLabel").style.display = doPairs ? "block" : "none";
   $("knobPair").style.display  = doPairs ? "block" : "none";
   if(doPairs){
-    drawFitTo($("knobPair"), buildPairCanvas(f,b));
+    const turns = getPairTurnsForIdx(idx);
+    const rf = rotateCanvasTurns(fExp, turns);
+    const rb = rotateCanvasTurns(bExp, turns);
+    const mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H";
+    drawFitTo($("knobPair"), buildPairCanvas(rf,rb,mode));
   }
+
+  updatePairRotateLabel(idx);
 }
 
 $("btnPreview").addEventListener("click", ()=>{
@@ -2366,18 +2682,72 @@ function step4Go(dir){
 $("btnPrev")?.addEventListener("click", ()=> step4Go(-1));
 $("btnNext")?.addEventListener("click", ()=> step4Go(+1));
 
+$("btnPairRotate")?.addEventListener("click", ()=>{
+  if(!S.previewOverrides) S.previewOverrides = { whiteBg:{}, pairTurns:{} };
+  const idx = PREVIEW.idx || parseInt($("idx")?.value || "1", 10) || 1;
+  const cur = getPairTurnsForIdx(idx);
+  S.previewOverrides.pairTurns[idx] = (cur + 1) % 4;
+  updatePairRotateLabel(idx);
+  // aktuelle Preview neu zeichnen
+  if(!$("btnPreview")?.disabled){
+    runPreview(PREVIEW.idx || parseInt($("idx")?.value || "1", 10), true);
+  }
+});
+
+// Preview: BG entfernen als lokale Override (nur aktuelles Bild)
+$("whiteBg")?.addEventListener("change", ()=>{
+  const idx = PREVIEW.idx || parseInt($("idx")?.value || "1", 10) || 1;
+  if(!S.previewOverrides) S.previewOverrides = { whiteBg:{}, pairTurns:{} };
+  S.previewOverrides.whiteBg[idx] = !!$("whiteBg")?.checked;
+  if(!$("btnPreview")?.disabled) runPreview(idx, true);
+});
+
+function refreshStep4PreviewIfPossible(){
+  if(!$("btnPreview")?.disabled){
+    const idx = PREVIEW.idx || parseInt($("idx")?.value || "1", 10) || 1;
+    runPreview(idx, true);
+  }
+}
+
+// Settings → wirkt global (außer dort, wo ein lokales Override gesetzt wurde)
+$("setWhiteBg")?.addEventListener("change", ()=>{
+  const idx = PREVIEW.idx || parseInt($("idx")?.value || "1", 10) || 1;
+  // nur an Step4 UI spiegeln, wenn für dieses Bild kein Override existiert
+  const o = S.previewOverrides?.whiteBg;
+  if(!(o && Object.prototype.hasOwnProperty.call(o, idx))){
+    if($("whiteBg")) $("whiteBg").checked = getGlobalWhiteBg();
+  }
+  refreshStep4PreviewIfPossible();
+});
+
+$("setAutoLayout")?.addEventListener("change", refreshStep4PreviewIfPossible);
+
+let featherT = 0;
+$("feather")?.addEventListener("input", ()=>{
+  if(featherT) clearTimeout(featherT);
+  featherT = setTimeout(()=>{
+    featherT = 0;
+    refreshStep4PreviewIfPossible();
+  }, 120);
+});
+
 function repeatWhileHeld(btnId, dir){
   const btn = $(btnId);
   if(!btn) return;
 
   let t = null;
+  let d = null;
 
   const start = (e)=>{
     e.preventDefault();
     step4Go(dir);
-    t = setInterval(()=> step4Go(dir), 180);
+    // Schnelldurchlauf erst nach ~0,5s (damit ein normaler Klick nur 1 Schritt ist)
+    d = setTimeout(()=>{
+      t = setInterval(()=> step4Go(dir), 180);
+    }, 500);
   };
   const stop = ()=>{
+    if(d){ clearTimeout(d); d=null; }
     if(t){ clearInterval(t); t=null; }
   };
 
@@ -2390,61 +2760,51 @@ function repeatWhileHeld(btnId, dir){
 repeatWhileHeld("btnPrev", -1);
 repeatWhileHeld("btnNext", +1);
 
+// Keyboard-Navigation: keine Doppel-Sprünge (iOS/Browser Auto-Repeat)
+const KEYNAV = { down:false, dir:0, delayT:0, repT:0 };
+
+function stopKeyNav(){
+  KEYNAV.down = false;
+  if(KEYNAV.delayT){ clearTimeout(KEYNAV.delayT); KEYNAV.delayT = 0; }
+  if(KEYNAV.repT){ clearInterval(KEYNAV.repT); KEYNAV.repT = 0; }
+}
+
 $("idx").addEventListener("keydown", (e)=>{
   if(e.key === "Enter"){
     e.preventDefault();
     e.stopImmediatePropagation();
-    $("btnPreview").click();
+    $("btnPreview")?.click();
     return;
   }
 
   if(e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
 
-  // NUMMER-INPUT macht sonst oft "selbst noch einmal weiter"
   e.preventDefault();
   e.stopImmediatePropagation();
 
-  if(!S.cells || !S.cells.length){
-    buildCells();
-    if(!S.cells.length) return;
-  }
-
   const dir = (e.key === "ArrowUp") ? +1 : -1;
+  if(KEYNAV.down && KEYNAV.dir === dir) return; // gehalten + repeat -> ignorieren
 
-  // WICHTIG: nicht aus dem Input lesen (kann schon vom Browser verändert sein)
-  const cur  = clamp(PREVIEW.idx || parseInt($("idx").value||"1",10), 1, S.cells.length);
-  const next = nextEnabledIdx(cur, dir);
+  KEYNAV.down = true;
+  KEYNAV.dir = dir;
 
-  $("idx").value = next;
-  runPreview(next, false); // auto-preview, deaktivierte überspringen
+  step4Go(dir); // 1 Schritt sofort
+
+  // Repeat erst nach 0,5s
+  if(KEYNAV.delayT) clearTimeout(KEYNAV.delayT);
+  KEYNAV.delayT = setTimeout(()=>{
+    KEYNAV.repT = setInterval(()=> step4Go(dir), 180);
+  }, 500);
 });
+
+$("idx").addEventListener("keyup", (e)=>{
+  if(e.key === "ArrowUp" || e.key === "ArrowDown") stopKeyNav();
+});
+
+$("idx").addEventListener("blur", stopKeyNav);
 
 // --- idx: Navigation & Preview ---
 let idxAutoTimer = 0;
-
-// Enter + ArrowUp/Down (Tastatur)
-$("idx").addEventListener("keydown", (e)=>{
-  if(e.key === "Enter"){
-    e.preventDefault();
-    $("btnPreview").click();
-    return;
-  }
-  if(e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-
-  e.preventDefault();
-
-  if(!S.cells || !S.cells.length){
-    buildCells();
-    if(!S.cells.length) return;
-  }
-
-  const cur = clamp(parseInt($("idx").value||"1",10), 1, S.cells.length);
-  const dir = (e.key === "ArrowUp") ? +1 : -1;
-
-  const next = nextEnabledIdx(cur, dir);
-  $("idx").value = next;
-  runPreview(next, false); // auto: deaktivierte überspringen
-});
 
 // "input" feuert bei Stepper UND beim Tippen.
 // -> Wir machen: kurz warten. Wenn nur "Tippen" -> nur schwarz lassen.
@@ -2493,7 +2853,7 @@ function handlePreviewPointerDown(e, side){
   const keyIdx = (side === "back") ? previewBackIdx() : PREVIEW.idx;
   const rect01 = S.manualCrop[side][keyIdx] || getVisibleRect01(side, keyIdx, src);
   const rp = rect01ToCanvasPx(rect01, fit);
-  const edge = hitTestEdge(p.x, p.y, rp, 14);
+  const edge = hitTestEdge(p.x, p.y, rp, 26);
   if(!edge) return;
 
   canvas.setPointerCapture(e.pointerId);
@@ -2658,18 +3018,24 @@ for(const cell of activeCells){
   if(!f || f.width < 10 || f.height < 10) f = f0;
   if(!b || b.width < 10 || b.height < 10) b = b0;
 
-  // ... dann Datei schreiben (Front/Back/Pair) wie gehabt
+  // Option: Hintergrund zu reinweiß glätten (global, aber pro Bild override möglich)
+  const fExp = maybeWhiten(f, cell.idx);
+  const bExp = maybeWhiten(b, cell.idx);
 
 
     // Dateinamen: <base>_<laufnr>_front.ext usw.
     if(es.front){
-      F.file(`${es.base}_${n}_front.${ext}`, await canvasToBlobAsync(f, mime, q));
+      F.file(`${es.base}_${n}_front.${ext}`, await canvasToBlobAsync(fExp, mime, q));
     }
     if(es.back){
-      B.file(`${es.base}_${n}_back.${ext}`, await canvasToBlobAsync(b, mime, q));
+      B.file(`${es.base}_${n}_back.${ext}`, await canvasToBlobAsync(bExp, mime, q));
     }
     if(es.pair){
-      const pair = buildPairCanvas(f,b);
+      const turns = getPairTurnsForIdx(cell.idx);
+      const rf = rotateCanvasTurns(fExp, turns);
+      const rb = rotateCanvasTurns(bExp, turns);
+      const mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H";
+      const pair = buildPairCanvas(rf,rb,mode);
       P.file(`${es.base}_${n}_pair.${ext}`, await canvasToBlobAsync(pair, mime, q));
     }
 
