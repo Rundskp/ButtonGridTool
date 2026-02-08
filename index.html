@@ -11,13 +11,15 @@
   <style>
     :root { --pad: 12px; --gap: 10px; --b:#2b6cff; }
     * { box-sizing: border-box; }
-    html, body { width:100%; max-width:100%; overflow-x:hidden; }
+    html, body { width:100%; max-width:100%; overflow-x:hidden;  margin:0;}
     body { font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; margin:0; background:#f5f6f8; padding-top:72px; }
 
     header {
       background:#fff; border-bottom:1px solid #ddd; padding:10px 12px;
+      padding-top:calc(10px + env(safe-area-inset-top));
       position:fixed; top:0; left:0; right:0; z-index:50;
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      display:flex;
+      min-height:44px; align-items:center; justify-content:space-between; gap:10px;
       max-width:100%;
     }
     header h1 { font-size:16px; margin:0; }
@@ -32,7 +34,7 @@
     button:disabled{ opacity:.5; }
     a { text-decoration:none; }
 
-    main{ padding:var(--pad); padding-top:calc(var(--pad) + 64px); max-width:980px; margin:0 auto; width:100%; }
+    main{ padding:var(--pad); padding-top:calc(var(--pad) + 54px + env(safe-area-inset-top)); max-width:980px; margin:0 auto; width:100%; }
     .card{ background:#fff; border:1px solid #ddd; border-radius:10px; padding:12px; margin:10px 0; max-width:100%; }
     .row{ display:flex; flex-wrap:wrap; gap:var(--gap); align-items:center; max-width:100%; }
     .pill{ display:inline-flex; gap:8px; align-items:center; padding:8px 10px; border:1px solid #ddd; border-radius:999px; max-width:100%; }
