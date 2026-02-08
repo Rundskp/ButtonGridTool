@@ -277,6 +277,7 @@
       </span>
 
       <button id="btnPairRotate" disabled title="Pair-Layout drehen (Front+Back je 90°)">⟳ Pair</button>
+      <button id="btnPairLayout" disabled title="Pair-Layout für dieses Bild: Auto ↔ ↕">↔ Auto</button>
 
     </div>
 
@@ -1152,7 +1153,8 @@ const S = {
   // key: Front-Idx (1..N)
   previewOverrides: {
     whiteBg: {},    // idx -> bool
-    pairTurns: {}   // idx -> 0..3
+    pairTurns: {},  // idx -> 0..3
+    pairLayout: {}  // idx -> "H" | "V" (override pro Bild)
   },
 
   // Step 4 UI
@@ -1716,6 +1718,7 @@ $("btnGridApply").addEventListener("click", ()=>{
     $("btnPrev").disabled = !ok;
     $("btnNext").disabled = !ok;
     $("btnPairRotate").disabled = !ok;
+    $("btnPairLayout").disabled = !ok;
 
     $("prevState").textContent = ok ? "bereit" : "wartet";
     $("prevState").className = ok ? "badge ok" : "badge warn";
@@ -2222,9 +2225,24 @@ function tightOrFull(cellCanvas, which){
 /* ===== FIX #4: Debug Overlay korrekt umrechnen (scan -> full) ===== */
 const PREVIEW = {
   idx: 1,
-  src: { front:null, back:null }, // volle Zelle (f0/b0) für schnellen Redraw
-  fits: { knobFront:null, knobBack:null },
-  drag: null,
+  src: { front:null, back:null, pair:null }, // canvases (front/back volle Zelle, pair zusammengesetzt)
+  fits: { knobFront:null, knobBack:null, knobPair:null },
+
+  // Preview Pan/Zoom pro Canvas
+  view: {
+    front:{scale:1, ox:0, oy:0},
+    back :{scale:1, ox:0, oy:0},
+    pair :{scale:1, ox:0, oy:0}
+  },
+
+  // Pointer-States pro Canvas (Pinch/Pan)
+  g: {
+    front:{ pointers:new Map(), pinch:null, pan:null },
+    back :{ pointers:new Map(), pinch:null, pan:null },
+    pair :{ pointers:new Map(), pinch:null, pan:null }
+  },
+
+  drag: null, // manualCrop Drag (nur front/back)
   raf: 0
 };
 
@@ -2236,6 +2254,7 @@ function updatePairRotateLabel(idx){
   b.textContent = deg ? `⟳ Pair ${deg}°` : "⟳ Pair";
 }
 updatePairRotateLabel(1);
+updatePairLayoutLabel(1);
 function clearStep4Preview(){
   // Canvas leeren
   for (const id of ["knobFront","knobBack","knobPair"]) {
@@ -2255,9 +2274,17 @@ function clearStep4Preview(){
   // Preview-Cache invalidieren
   PREVIEW.src.front = null;
   PREVIEW.src.back  = null;
+  PREVIEW.src.pair  = null;
   PREVIEW.fits.knobFront = null;
   PREVIEW.fits.knobBack  = null;
+  PREVIEW.fits.knobPair  = null;
   PREVIEW.drag = null;
+
+  // Preview-View reset (sonst bleibt Zoom/Pan hängen)
+  for(const k of ["front","back","pair"]){
+    if(PREVIEW.view && PREVIEW.view[k]){ PREVIEW.view[k].scale=1; PREVIEW.view[k].ox=0; PREVIEW.view[k].oy=0; }
+    if(PREVIEW.g && PREVIEW.g[k]){ PREVIEW.g[k].pointers?.clear?.(); PREVIEW.g[k].pinch=null; PREVIEW.g[k].pan=null; }
+  }
 }
 
 function setCollapsed(which, collapsed){
@@ -2297,55 +2324,75 @@ function drawFitTo(canvas, src, side){
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  const r = Math.min(canvas.width/src.width, canvas.height/src.height);
-  const w = src.width * r;
-  const h = src.height * r;
-  const x = (canvas.width  - w) / 2;
-  const y = (canvas.height - h) / 2;
+  // Base fit (contain)
+  const r0 = Math.min(canvas.width/src.width, canvas.height/src.height);
+  const w0 = src.width * r0;
+  const h0 = src.height * r0;
+  const x0 = (canvas.width  - w0) / 2;
+  const y0 = (canvas.height - h0) / 2;
+
+  // Preview Pan/Zoom (nur Step4 canvases)
+  const v = (PREVIEW && PREVIEW.view && side && PREVIEW.view[side]) ? PREVIEW.view[side] : null;
+  const s = v ? (v.scale || 1) : 1;
+  const ox = v ? (v.ox || 0) : 0;
+  const oy = v ? (v.oy || 0) : 0;
+  const cx = canvas.width/2, cy = canvas.height/2;
+
+  const x = (x0 - cx) * s + cx + ox;
+  const y = (y0 - cy) * s + cy + oy;
+  const w = w0 * s;
+  const h = h0 * s;
+  const r = r0 * s;
 
   ctx.drawImage(src, x, y, w, h);
 
-  // Fit speichern für Drag
-  if(side==="front") PREVIEW.fits.knobFront = { r, x, y, w, h, srcW:src.width, srcH:src.height };
-  if(side==="back")  PREVIEW.fits.knobBack  = { r, x, y, w, h, srcW:src.width, srcH:src.height };
+  // Fit speichern für Drag/HitTest (in Canvas-Px!)
+  const fit = { r, x, y, w, h, srcW:src.width, srcH:src.height };
+  if(side==="front") PREVIEW.fits.knobFront = fit;
+  if(side==="back")  PREVIEW.fits.knobBack  = fit;
+  if(side==="pair")  PREVIEW.fits.knobPair  = fit;
+
+  // Overlay nur für front/back
+  if(side==="pair") return;
 
   // Overlay immer, sobald DebugOverlay an ist ODER manuelle Werte existieren
   const chk = $("debugOverlay");
   const keyIdx = (side === "back") ? previewBackIdx() : PREVIEW.idx;
 
-const wantsOverlay =
-  !!(chk && chk.checked) ||
-  !!S.manualCrop?.[side]?.[keyIdx];
+  const wantsOverlay =
+    !!(chk && chk.checked) ||
+    !!S.manualCrop?.[side]?.[keyIdx];
 
-if(wantsOverlay){
-  const rect01 = getVisibleRect01(side, keyIdx, src);
-  const rp = rect01ToCanvasPx(rect01, {x,y,w,h});
-  ctx.save();
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = "rgba(220,0,0,0.95)";
-  ctx.strokeRect(rp.x, rp.y, rp.w, rp.h);
+  if(wantsOverlay){
+    const rect01 = getVisibleRect01(side, keyIdx, src);
+    const rp = rect01ToCanvasPx(rect01, {x,y,w,h});
+    ctx.save();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(220,0,0,0.95)";
+    ctx.strokeRect(rp.x, rp.y, rp.w, rp.h);
 
-  // Greifpunkte (größer, iPhone-tauglich)
-  const L = 28;
-  const R = 10;
-  const mx = rp.x + rp.w/2;
-  const my = rp.y + rp.h/2;
+    // Greifpunkte (größer, iPhone-tauglich)
+    const L = 28;
+    const R = 10;
+    const mx = rp.x + rp.w/2;
+    const my = rp.y + rp.h/2;
 
-  ctx.beginPath();
-  ctx.moveTo(rp.x, my); ctx.lineTo(rp.x + L, my);
-  ctx.moveTo(rp.x + rp.w, my); ctx.lineTo(rp.x + rp.w - L, my);
-  ctx.moveTo(mx, rp.y); ctx.lineTo(mx, rp.y + L);
-  ctx.moveTo(mx, rp.y + rp.h); ctx.lineTo(mx, rp.y + rp.h - L);
-  ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(rp.x, my); ctx.lineTo(rp.x + L, my);
+    ctx.moveTo(rp.x + rp.w, my); ctx.lineTo(rp.x + rp.w - L, my);
+    ctx.moveTo(mx, rp.y); ctx.lineTo(mx, rp.y + L);
+    ctx.moveTo(mx, rp.y + rp.h); ctx.lineTo(mx, rp.y + rp.h - L);
+    ctx.stroke();
 
-  // Kreise einzeln füllen (sonst verbindet Canvas die Subpaths -> riesige Dreiecke)
-  ctx.fillStyle = "rgba(220,0,0,0.85)";
-  const dot = (cx,cy)=>{ ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fill(); };
-  dot(rp.x, my);
-  dot(rp.x + rp.w, my);
-  dot(mx, rp.y);
-  dot(mx, rp.y + rp.h);
-  ctx.restore();
+    // Kreise einzeln füllen (sonst verbindet Canvas die Subpaths -> Dreiecke)
+    ctx.fillStyle = "rgba(220,0,0,0.85)";
+    const dot = (cx,cy)=>{ ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fill(); };
+    dot(rp.x, my);
+    dot(rp.x + rp.w, my);
+    dot(mx, rp.y);
+    dot(mx, rp.y + rp.h);
+    ctx.restore();
+  }
 }
 }
 function redrawPreviewSide(side){
@@ -2353,6 +2400,7 @@ function redrawPreviewSide(side){
   if(!src) return;
   if(side === "front") drawFitTo($("knobFront"), src, "front");
   if(side === "back")  drawFitTo($("knobBack"),  src, "back");
+  if(side === "pair")  drawFitTo($("knobPair"),  src, "pair");
 }
 
 function drawDebugOverlay(canvas, src, fit){
@@ -2496,6 +2544,34 @@ function getPairTurnsForIdx(idx){
   const o = S.previewOverrides?.pairTurns;
   if(o && Object.prototype.hasOwnProperty.call(o, idx)) return (parseInt(o[idx],10) || 0) % 4;
   return 0;
+}
+
+
+function getPairLayoutOverrideForIdx(idx){
+  const o = S.previewOverrides?.pairLayout;
+  if(o && Object.prototype.hasOwnProperty.call(o, idx)){
+    const v = String(o[idx]||"").toUpperCase();
+    if(v==="H" || v==="V") return v;
+  }
+  return null; // Auto
+}
+function updatePairLayoutLabel(idx){
+  const b = $("btnPairLayout");
+  if(!b) return;
+  const i = idx || PREVIEW.idx || 1;
+  const cur = getPairLayoutOverrideForIdx(i);
+  if(cur==="H"){ b.textContent = "↔ Neben"; }
+  else if(cur==="V"){ b.textContent = "↕ Oben/Unten"; }
+  else { b.textContent = "↔ Auto"; }
+}
+function cyclePairLayoutOverride(idx){
+  if(!S.previewOverrides) S.previewOverrides = { whiteBg:{}, pairTurns:{}, pairLayout:{} };
+  if(!S.previewOverrides.pairLayout) S.previewOverrides.pairLayout = {};
+  const cur = getPairLayoutOverrideForIdx(idx);
+  const next = (cur===null) ? "H" : (cur==="H") ? "V" : null;
+  if(next===null) delete S.previewOverrides.pairLayout[idx];
+  else S.previewOverrides.pairLayout[idx]=next;
+  updatePairLayoutLabel(idx);
 }
 
 function whitenBackground(srcCanvas){
@@ -2745,11 +2821,17 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
     const ms = maybeMatchObjectSizeForPair(rf, rb);
     const rf2 = ms.front;
     const rb2 = ms.back;
-    const mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf2, rb2) : "H";
-    drawFitTo($("knobPair"), buildPairCanvas(rf2,rb2,mode));
+    let mode = null;
+    const ov = getPairLayoutOverrideForIdx(idx);
+    if(ov){ mode = ov; }
+    else { mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf2, rb2) : "H"; }
+    const pairC = buildPairCanvas(rf2, rb2, mode);
+    PREVIEW.src.pair = pairC;
+    drawFitTo($("knobPair"), pairC, "pair");
   }
 
   updatePairRotateLabel(idx);
+  updatePairLayoutLabel(idx);
 }
 
 $("btnPreview").addEventListener("click", ()=>{
@@ -2785,6 +2867,13 @@ $("btnNext")?.addEventListener("click", ()=> step4Go(+1));
 $("btnPairRotate")?.addEventListener("click", ()=>{
   if(!S.previewOverrides) S.previewOverrides = { whiteBg:{}, pairTurns:{} };
   const idx = PREVIEW.idx || parseInt($("idx")?.value || "1", 10) || 1;
+
+
+  // Preview-Zoom/Pan bei jeder Preview-Aktion zurücksetzen (am iPhone sonst schnell "verloren")
+  for(const k of ["front","back","pair"]){
+    if(PREVIEW.view && PREVIEW.view[k]){ PREVIEW.view[k].scale=1; PREVIEW.view[k].ox=0; PREVIEW.view[k].oy=0; }
+    if(PREVIEW.g && PREVIEW.g[k]){ PREVIEW.g[k].pointers.clear(); PREVIEW.g[k].pinch=null; PREVIEW.g[k].pan=null; }
+  }
   const cur = getPairTurnsForIdx(idx);
   S.previewOverrides.pairTurns[idx] = (cur + 1) % 4;
   updatePairRotateLabel(idx);
@@ -2793,6 +2882,14 @@ $("btnPairRotate")?.addEventListener("click", ()=>{
     runPreview(PREVIEW.idx || parseInt($("idx")?.value || "1", 10), true);
   }
 });
+
+$("btnPairLayout")?.addEventListener("click", ()=>{
+  if(!S.cells || !S.cells.length) return;
+  const idx = PREVIEW.idx || clamp(parseInt($("idx").value||"1",10), 1, S.cells.length);
+  cyclePairLayoutOverride(idx);
+  runPreview(idx, true);
+});
+
 
 // Preview: BG entfernen als lokale Override (nur aktuelles Bild)
 $("whiteBg")?.addEventListener("change", ()=>{
@@ -2883,19 +2980,11 @@ $("idx").addEventListener("keydown", (e)=>{
   e.stopImmediatePropagation();
 
   const dir = (e.key === "ArrowUp") ? +1 : -1;
-  if(KEYNAV.down && KEYNAV.dir === dir) return; // gehalten + repeat -> ignorieren
+  if(e.repeat) return; // Browser-KeyRepeat ignorieren
 
-  KEYNAV.down = true;
-  KEYNAV.dir = dir;
+  step4Go(dir); // 1 Schritt pro Tastendruck
 
-  step4Go(dir); // 1 Schritt sofort
-
-  // Repeat erst nach 0,5s
-  if(KEYNAV.delayT) clearTimeout(KEYNAV.delayT);
-  KEYNAV.delayT = setTimeout(()=>{
-    KEYNAV.repT = setInterval(()=> step4Go(dir), 180);
-  }, 500);
-});
+  });
 
 $("idx").addEventListener("keyup", (e)=>{
   if(e.key === "ArrowUp" || e.key === "ArrowDown") stopKeyNav();
@@ -2929,98 +3018,136 @@ $("idx").addEventListener("input", (e)=>{
 
 
 function previewLocalPoint(canvas, e){
-  const r=canvas.getBoundingClientRect();
-  return { x:(e.clientX-r.left)*(canvas.width/r.width), y:(e.clientY-r.top)*(canvas.height/r.height) };
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (canvas.width / r.width),
+    y: (e.clientY - r.top)  * (canvas.height / r.height)
+  };
 }
 
 function handlePreviewPointerDown(e, side){
-  const chk = $("debugOverlay");
-  if(!(chk && chk.checked)) return; // Drag nur wenn DebugOverlay aktiv ist
-
   const canvas = e.currentTarget;
-  const p = previewLocalPoint(canvas, e);
-
-  const fit = (side==="front") ? PREVIEW.fits.knobFront : PREVIEW.fits.knobBack;
-  if(!fit) return;
-
-  // Ist das srcCanvas der vollen Zelle: das vorher drawFitTo bekam.
-  // Im Flow ist das f0/b0 -> über last preview render wird aber nicht direkt drauf zugegriffen,
-  // daher als Quelle das nehmen, was in Preview gerade gilt:
-  // -> simplest: das gespeicherte manual/auto rect unabhängig vom srcCanvas nutzen.
-  const src = PREVIEW.src?.[side];
-  if(!src) return;
-
-  const keyIdx = (side === "back") ? previewBackIdx() : PREVIEW.idx;
-  const rect01 = S.manualCrop[side][keyIdx] || getVisibleRect01(side, keyIdx, src);
-  const rp = rect01ToCanvasPx(rect01, fit);
-  const edge = hitTestEdge(p.x, p.y, rp, 26);
-  if(!edge) return;
-
   canvas.setPointerCapture(e.pointerId);
 
-  PREVIEW.drag = {
-    side,
-    edge,
-    startX: p.x,
-    startY: p.y,
-    startRect: rect01,
-    fit,
-    moved: false
-  };
-
-  // NICHT hier speichern – erst wenn wirklich gezogen wurde
-}
-
-
-function handlePreviewPointerMove(e){
-  if(!PREVIEW.drag) return;
-
-  const canvas = e.currentTarget;
+  const g = PREVIEW.g[side];
   const p = previewLocalPoint(canvas, e);
+  g.pointers.set(e.pointerId, p);
 
-  const d = PREVIEW.drag;
-  const dxPx = (p.x - d.startX);
-  const dyPx = (p.y - d.startY);
-
-  const dx01 = dxPx / (d.fit.w || 1);
-  const dy01 = dyPx / (d.fit.h || 1);
-
-  // erst ab echtem Move als "manual" zählen
-  if(!d.moved && Math.hypot(dxPx, dyPx) > 3){
-    d.moved = true;
-    const keyIdx = (d.side === "back") ? previewBackIdx() : PREVIEW.idx;
-    S.manualCrop[d.side][keyIdx] = d.startRect; // ab jetzt existiert ein manualCrop
+  // 2-Finger Pinch
+  if(g.pointers.size === 2){
+    const a = [...g.pointers.values()];
+    const d = Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y);
+    g.pinch = { startDist:d, startScale: PREVIEW.view[side].scale };
+    PREVIEW.drag = null;
+    g.pan = null;
+    return;
   }
 
-  if(d.moved){
-    const next = updateRectEdge(d.startRect, d.edge, dx01, dy01, 0.08);
-    const keyIdx = (d.side === "back") ? previewBackIdx() : PREVIEW.idx;
-    S.manualCrop[d.side][keyIdx] = next;
+  // Manual-Crop Drag (nur front/back) wenn DebugOverlay an UND Edge getroffen
+  const chk = $("debugOverlay");
+  if((side==="front" || side==="back") && (chk && chk.checked)){
+    const fit = (side==="front") ? PREVIEW.fits.knobFront : PREVIEW.fits.knobBack;
+    const src = PREVIEW.src?.[side];
+    if(fit && src){
+      const keyIdx = (side === "back") ? previewBackIdx() : PREVIEW.idx;
+      const rect01 = S.manualCrop[side][keyIdx] || getVisibleRect01(side, keyIdx, src);
+      const rp = rect01ToCanvasPx(rect01, fit);
+      const edge = hitTestEdge(p.x, p.y, rp, 40); // größere Toleranz für "fette Finger"
+      if(edge){
+        PREVIEW.drag = {
+          side,
+          edge,
+          startX: p.x,
+          startY: p.y,
+          startRect: rect01,
+          fit,
+          moved: false
+        };
+        g.pan = null;
+        return;
+      }
+    }
   }
 
-
-  // nur redraw, nicht neu rechnen (sonst Lag)
-  if(PREVIEW.raf) cancelAnimationFrame(PREVIEW.raf);
-  PREVIEW.raf = requestAnimationFrame(()=>{
-    redrawPreviewSide(d.side);
-    PREVIEW.raf = 0;
-  });
+  // Sonst: Pan
+  g.pan = { x:p.x, y:p.y };
 }
 
-function handlePreviewPointerUp(){
-  PREVIEW.drag = null;
+function handlePreviewPointerMove(e, side){
+  const canvas = e.currentTarget;
+  const g = PREVIEW.g[side];
+  if(!g.pointers.has(e.pointerId)) return;
+
+  const p = previewLocalPoint(canvas, e);
+  g.pointers.set(e.pointerId, p);
+
+  // Pinch Zoom
+  if(g.pointers.size===2 && g.pinch){
+    const a = [...g.pointers.values()];
+    const d = Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y);
+    const ratio = d / (g.pinch.startDist || 1);
+    PREVIEW.view[side].scale = clampScale(g.pinch.startScale * ratio);
+    redrawPreviewSide(side);
+    return;
+  }
+
+  // Manual crop drag
+  if(PREVIEW.drag && PREVIEW.drag.side===side){
+    const d0 = PREVIEW.drag;
+    const dxPx = (p.x - d0.startX);
+    const dyPx = (p.y - d0.startY);
+    const dx01 = dxPx / (d0.fit.w || 1);
+    const dy01 = dyPx / (d0.fit.h || 1);
+
+    if(!d0.moved && Math.hypot(dxPx, dyPx) > 3){
+      d0.moved = true;
+      const keyIdx = (side === "back") ? previewBackIdx() : PREVIEW.idx;
+      S.manualCrop[side][keyIdx] = d0.startRect;
+    }
+    if(d0.moved){
+      const next = updateRectEdge(d0.startRect, d0.edge, dx01, dy01, 0.08);
+      const keyIdx = (side === "back") ? previewBackIdx() : PREVIEW.idx;
+      S.manualCrop[side][keyIdx] = next;
+    }
+
+    if(PREVIEW.raf) cancelAnimationFrame(PREVIEW.raf);
+    PREVIEW.raf = requestAnimationFrame(()=>{
+      redrawPreviewSide(side);
+      PREVIEW.raf = 0;
+    });
+    return;
+  }
+
+  // Pan
+  if(g.pan){
+    const dx = p.x - g.pan.x;
+    const dy = p.y - g.pan.y;
+    PREVIEW.view[side].ox += dx;
+    PREVIEW.view[side].oy += dy;
+    g.pan.x = p.x; g.pan.y = p.y;
+    redrawPreviewSide(side);
+  }
+}
+
+function handlePreviewPointerUp(e, side){
+  const g = PREVIEW.g[side];
+  g.pointers.delete(e.pointerId);
+  if(g.pointers.size < 2) g.pinch = null;
+  if(g.pointers.size === 0) g.pan = null;
+  if(PREVIEW.drag && PREVIEW.drag.side===side) PREVIEW.drag = null;
 }
 
 // Events binden
-$("knobFront").onpointerdown = (e)=> handlePreviewPointerDown(e, "front");
-$("knobFront").onpointermove = (e)=> handlePreviewPointerMove(e);
-$("knobFront").onpointerup   = (e)=> handlePreviewPointerUp(e);
-$("knobFront").onpointercancel = (e)=> handlePreviewPointerUp(e);
+["front","back","pair"].forEach(side=>{
+  const id = (side==="front") ? "knobFront" : (side==="back") ? "knobBack" : "knobPair";
+  const c = $(id);
+  if(!c) return;
+  c.onpointerdown = (e)=> handlePreviewPointerDown(e, side);
+  c.onpointermove = (e)=> handlePreviewPointerMove(e, side);
+  c.onpointerup   = (e)=> handlePreviewPointerUp(e, side);
+  c.onpointercancel = (e)=> handlePreviewPointerUp(e, side);
+});
 
-$("knobBack").onpointerdown = (e)=> handlePreviewPointerDown(e, "back");
-$("knobBack").onpointermove = (e)=> handlePreviewPointerMove(e);
-$("knobBack").onpointerup   = (e)=> handlePreviewPointerUp(e);
-$("knobBack").onpointercancel = (e)=> handlePreviewPointerUp(e);
 /* -------- Reset Manual Crop Button -------- */
 $("btnResetCrop").addEventListener("click", ()=>{
   if(!S.cells || !S.cells.length){
