@@ -249,7 +249,8 @@
       <button id="btnPrev" disabled>◀︎</button>
 
       <span class="pill"><b>Knopf #</b>
-        <input id="idx" type="number" value="1" min="1" step="1" style="width:90px;">
+        <!-- type=text verhindert Browser-"ArrowUp/Down" Auto-Step (sonst doppelte Sprünge) -->
+        <input id="idx" type="text" inputmode="numeric" pattern="[0-9]*" value="1" style="width:90px;">
       </span>
 
       <button id="btnNext" disabled>▶︎</button>
@@ -422,6 +423,11 @@
       <span class="pill">
         <b>Hintergrund weiß machen</b>
         <input id="setWhiteBg" type="checkbox">
+      </span>
+
+      <span class="pill">
+        <b>Objektgröße angleichen (Pair)</b>
+        <input id="setMatchSize" type="checkbox" checked>
       </span>
 
       <span class="pill">
@@ -1451,7 +1457,7 @@ function photoPointerUp(which, canvas, e){
 /* ----------------- Settings Save/Load ----------------- */
 const SETTINGS_IDS = [
   "fmt","jpgq","gridPad","tight",
-  "setWhiteBg","setAutoLayout","feather",
+  "setWhiteBg","setMatchSize","setAutoLayout","feather",
   "edgeRun","edgeOff",
   "fThrT","fFillT","fThrR","fFillR","fThrB","fFillB","fThrL","fFillL",
   "bThrT","bFillT","bThrR","bFillR","bThrB","bFillB","bThrL","bFillL",
@@ -2332,13 +2338,13 @@ if(wantsOverlay){
   ctx.moveTo(mx, rp.y + rp.h); ctx.lineTo(mx, rp.y + rp.h - L);
   ctx.stroke();
 
+  // Kreise einzeln füllen (sonst verbindet Canvas die Subpaths -> riesige Dreiecke)
   ctx.fillStyle = "rgba(220,0,0,0.85)";
-  ctx.beginPath();
-  ctx.arc(rp.x, my, R, 0, Math.PI*2);
-  ctx.arc(rp.x + rp.w, my, R, 0, Math.PI*2);
-  ctx.arc(mx, rp.y, R, 0, Math.PI*2);
-  ctx.arc(mx, rp.y + rp.h, R, 0, Math.PI*2);
-  ctx.fill();
+  const dot = (cx,cy)=>{ ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fill(); };
+  dot(rp.x, my);
+  dot(rp.x + rp.w, my);
+  dot(mx, rp.y);
+  dot(mx, rp.y + rp.h);
   ctx.restore();
 }
 }
@@ -2470,6 +2476,9 @@ function approxBgColor(canvas){
 function getGlobalWhiteBg(){
   return !!$("setWhiteBg")?.checked;
 }
+function getGlobalMatchSize(){
+  return !!$("setMatchSize")?.checked;
+}
 function getGlobalAutoLayout(){
   return !!$("setAutoLayout")?.checked;
 }
@@ -2530,6 +2539,94 @@ function whitenBackground(srcCanvas){
 function maybeWhiten(canvas, idx){
   if(!isWhiteBgForIdx(idx)) return canvas;
   return whitenBackground(canvas);
+}
+
+// --- Pair: Objektgröße angleichen (damit Front/Back gleich groß wirken) ---
+function detectForegroundBBox(srcCanvas){
+  // Robust & schnell: Hintergrund aus Ecken (Median) + Distanzschwellwert
+  const ctx = srcCanvas.getContext("2d", { willReadFrequently:true });
+  const w = srcCanvas.width, h = srcCanvas.height;
+  if(w < 6 || h < 6) return null;
+
+  const bg = approxBgColor(srcCanvas);
+  const img = ctx.getImageData(0,0,w,h);
+  const d = img.data;
+
+  const thr = 42; // konservativ: lieber Objekt behalten
+  const thr2 = thr*thr;
+
+  // Step-Sampling: groß genug für Speed, klein genug für lange Objekte
+  const step = Math.max(1, Math.floor(Math.min(w,h) / 220));
+
+  let xMin = w, yMin = h, xMax = -1, yMax = -1;
+  let fgCount = 0;
+
+  for(let y=0; y<h; y+=step){
+    for(let x=0; x<w; x+=step){
+      const i = (y*w + x)*4;
+      const r = d[i], g = d[i+1], b = d[i+2];
+      const dr = r - bg.r, dg = g - bg.g, db = b - bg.b;
+      const dist2 = dr*dr + dg*dg + db*db;
+      if(dist2 > thr2){
+        fgCount++;
+        if(x < xMin) xMin = x;
+        if(y < yMin) yMin = y;
+        if(x > xMax) xMax = x;
+        if(y > yMax) yMax = y;
+      }
+    }
+  }
+
+  // Wenn quasi nix gefunden wurde -> keine Normierung
+  if(fgCount < 12 || xMax < xMin || yMax < yMin) return null;
+
+  // Auf volle Auflösung hochrechnen (step raster)
+  const pad = Math.max(2, Math.floor(step*2));
+  xMin = clamp(xMin - pad, 0, w-1);
+  yMin = clamp(yMin - pad, 0, h-1);
+  xMax = clamp(xMax + pad, 0, w-1);
+  yMax = clamp(yMax + pad, 0, h-1);
+
+  const bw = (xMax - xMin + 1);
+  const bh = (yMax - yMin + 1);
+  if(bw < 6 || bh < 6) return null;
+  return { x:xMin, y:yMin, w:bw, h:bh };
+}
+
+function scaleCanvasToMatchLongEdge(srcCanvas, bbox, targetLong){
+  if(!bbox) return srcCanvas;
+  const long = Math.max(bbox.w, bbox.h);
+  if(!long || !targetLong) return srcCanvas;
+
+  // Clamp: zu wildes Upscale macht nur Matsch
+  const s = clamp(targetLong / long, 0.6, 1.8);
+  if(Math.abs(s - 1) < 0.03) return srcCanvas;
+
+  const out = document.createElement("canvas");
+  out.width  = Math.max(1, Math.round(srcCanvas.width  * s));
+  out.height = Math.max(1, Math.round(srcCanvas.height * s));
+  const octx = out.getContext("2d");
+  octx.fillStyle = "#fff";
+  octx.fillRect(0,0,out.width,out.height);
+  octx.drawImage(srcCanvas, 0,0, out.width, out.height);
+  return out;
+}
+
+function maybeMatchObjectSizeForPair(frontCanvas, backCanvas){
+  if(!getGlobalMatchSize()) return { front:frontCanvas, back:backCanvas };
+
+  const bf = detectForegroundBBox(frontCanvas);
+  const bb = detectForegroundBBox(backCanvas);
+  if(!bf || !bb) return { front:frontCanvas, back:backCanvas };
+
+  const lf = Math.max(bf.w, bf.h);
+  const lb = Math.max(bb.w, bb.h);
+  const target = Math.max(lf, lb);
+
+  return {
+    front: scaleCanvasToMatchLongEdge(frontCanvas, bf, target),
+    back : scaleCanvasToMatchLongEdge(backCanvas,  bb, target)
+  };
 }
 
 /* ===== FIX #2: Preview zeigt volle Zelle + Overlay; Pair zeigt crop ===== */
@@ -2645,8 +2742,11 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
     const turns = getPairTurnsForIdx(idx);
     const rf = rotateCanvasTurns(fExp, turns);
     const rb = rotateCanvasTurns(bExp, turns);
-    const mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H";
-    drawFitTo($("knobPair"), buildPairCanvas(rf,rb,mode));
+    const ms = maybeMatchObjectSizeForPair(rf, rb);
+    const rf2 = ms.front;
+    const rb2 = ms.back;
+    const mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf2, rb2) : "H";
+    drawFitTo($("knobPair"), buildPairCanvas(rf2,rb2,mode));
   }
 
   updatePairRotateLabel(idx);
@@ -3034,8 +3134,11 @@ for(const cell of activeCells){
       const turns = getPairTurnsForIdx(cell.idx);
       const rf = rotateCanvasTurns(fExp, turns);
       const rb = rotateCanvasTurns(bExp, turns);
-      const mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H";
-      const pair = buildPairCanvas(rf,rb,mode);
+      const ms = maybeMatchObjectSizeForPair(rf, rb);
+      const rf2 = ms.front;
+      const rb2 = ms.back;
+      const mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf2, rb2) : "H";
+      const pair = buildPairCanvas(rf2,rb2,mode);
       P.file(`${es.base}_${n}_pair.${ext}`, await canvasToBlobAsync(pair, mime, q));
     }
 
