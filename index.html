@@ -12,7 +12,7 @@
     :root { --pad: 12px; --gap: 10px; --b:#2b6cff; }
     * { box-sizing: border-box; }
     html, body { width:100%; max-width:100%; overflow-x:hidden;  margin:0;}
-    body { font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; margin:0; background:#f5f6f8; padding-top:72px; }
+    body { font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; margin:0; background:#f5f6f8; padding-top:0; }
 
     header {
       background:#fff; border-bottom:1px solid #ddd; padding:10px 12px;
@@ -2418,7 +2418,6 @@ function drawFitTo(canvas, src, side){
     dot(mx, rp.y + rp.h);
     ctx.restore();
   }
-}
 }
 function redrawPreviewSide(side){
   const src = PREVIEW.src?.[side];
