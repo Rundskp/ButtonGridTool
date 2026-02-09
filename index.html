@@ -34,7 +34,7 @@
     button:disabled{ opacity:.5; }
     a { text-decoration:none; }
 
-    main{ padding:var(--pad); padding-top:calc(var(--pad) + 54px + env(safe-area-inset-top)); max-width:980px; margin:0 auto; width:100%; }
+    main{ padding:var(--pad); padding-top:calc(var(--pad) + var(--headerH,54px) + env(safe-area-inset-top)); max-width:980px; margin:0 auto; width:100%; }
     .card{ background:#fff; border:1px solid #ddd; border-radius:10px; padding:12px; margin:10px 0; max-width:100%; }
     .row{ display:flex; flex-wrap:wrap; gap:var(--gap); align-items:center; max-width:100%; }
     .pill{ display:inline-flex; gap:8px; align-items:center; padding:8px 10px; border:1px solid #ddd; border-radius:999px; max-width:100%; }
@@ -762,6 +762,30 @@ function setStatus(s){ statusEl.textContent = "Status: " + s; }
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function clampScale(s){ return clamp(s, 1, 6); }
 function pad3(n){ return String(n).padStart(3,"0"); }
+// iOS Safari Tap-Fix: pointerup-first + double-fire guard
+const __tapLast = new WeakMap();
+function onTap(el, fn){
+  if(!el) return;
+  const handler = (e)=>{
+    const now = performance.now();
+    const last = __tapLast.get(el) || 0;
+    if(now - last < 350) return; // block ghost/double taps
+    __tapLast.set(el, now);
+    fn(e);
+  };
+  el.addEventListener("pointerup", (e)=>{ handler(e); }, {passive:false});
+  // fallback for older browsers / keyboard activation
+  el.addEventListener("click", (e)=>{ handler(e); });
+}
+function setHeaderH(){
+  const hdr = document.querySelector("header");
+  if(!hdr) return;
+  const h = Math.round(hdr.getBoundingClientRect().height);
+  document.documentElement.style.setProperty("--headerH", h+"px");
+}
+window.addEventListener("load", setHeaderH);
+window.addEventListener("resize", setHeaderH);
+
 function clamp01(v){ return Math.max(0, Math.min(1, v)); }
 function sanitizeFilename(s){
   return String(s || "")
@@ -1171,11 +1195,10 @@ const S = {
 
 
 /* ----------------- UI: file pickers ----------------- */
-$("btnFrontCam").addEventListener("click", ()=> $("frontCam").click());
-$("btnFrontPick").addEventListener("click", ()=> $("frontPick").click());
-$("btnBackCam").addEventListener("click", ()=> $("backCam").click());
-$("btnBackPick").addEventListener("click", ()=> $("backPick").click());
-
+onTap($("btnFrontCam"), ()=> $("frontCam").click());
+onTap($("btnFrontPick"), ()=> $("frontPick").click());
+onTap($("btnBackCam"), ()=> $("backCam").click());
+onTap($("btnBackPick"), ()=> $("backPick").click());
 $("frontCam").addEventListener("change", (e)=> loadSide(e, "front"));
 $("frontPick").addEventListener("change", (e)=> loadSide(e, "front"));
 $("backCam").addEventListener("change", (e)=> loadSide(e, "back"));
