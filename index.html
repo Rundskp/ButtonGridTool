@@ -3282,16 +3282,23 @@ for(const cell of activeCells){
       B.file(`${es.base}_${n}_back.${ext}`, await canvasToBlobAsync(bExp, mime, q));
     }
     if(es.pair){
-      const turns = getPairTurnsForIdx(cell.idx);
-      const rf = rotateCanvasTurns(fExp, turns);
-      const rb = rotateCanvasTurns(bExp, turns);
-      const ms = maybeMatchObjectSizeForPair(rf, rb);
-      const rf2 = ms.front;
-      const rb2 = ms.back;
-      const mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf2, rb2) : "H";
-      const pair = buildPairCanvas(rf2,rb2,mode);
-      P.file(`${es.base}_${n}_pair.${ext}`, await canvasToBlobAsync(pair, mime, q));
-    }
+  const frontIdx = cell.idx;
+
+  const turns = getPairTurnsForIdx(frontIdx);
+  const rf = rotateCanvasTurns(fExp, turns);
+  const rb = rotateCanvasTurns(bExp, turns);
+
+  const ms = maybeMatchObjectSizeForPair(rf, rb);
+  const rf2 = ms.front;
+  const rb2 = ms.back;
+
+  // ✅ wie im Preview: Override hat Vorrang, sonst Auto (oder H)
+  const ov = getPairLayoutOverrideForIdx(frontIdx);
+  const mode = ov ? ov : (getGlobalAutoLayout() ? pickAutoPairLayout(rf2, rb2) : "H");
+
+  const pair = buildPairCanvas(rf2, rb2, mode);
+  P.file(`${es.base}_${n}_pair.${ext}`, await canvasToBlobAsync(pair, mime, q));
+}
 
     exported++;
     if(exported % 5 === 0) setStatus(`Export… ${exported}/${activeCells.length}…`);
