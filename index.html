@@ -130,6 +130,8 @@
     <button id="btnHelp" title="Hilfe">?</button>
     <button id="btnDonate" title="Spenden">☕️</button>
     <button id="btnGear" title="Einstellungen">⚙️</button>
+    <button id="btnSingleMode">Einzelmodus</button>
+    <input id="singleFiles" type="file" accept="image/*" multiple style="display:none">
   </div>
 </header>
 
@@ -348,6 +350,17 @@
     </p>
 
     <p id="status" class="small">Status: OpenCV.js lädt…</p>
+  </div>
+
+  <!-- SINGLE MODE -->
+  <div id="singlePanel" class="card" style="display:none">
+    <b>Einzelmodus</b><br>
+    ⚠ keine Perspektiv-Entzerrung – Foto möglichst parallel aufnehmen.
+    <div id="singleGallery" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin-top:10px;"></div>
+    <div class="row" style="margin-top:10px">
+      <button id="btnAutoPair">AutoPair</button>
+      <button id="btnSingleApply" class="primary">Übernehmen</button>
+    </div>
   </div>
 
 </main>
@@ -1126,6 +1139,27 @@ async function loadImageFileToCanvas(file){
   }
 }
 
+// Load an image from a DataURL and convert it to a canvas (full resolution)
+async function loadCanvasFromDataURL(url){
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      resolve(c);
+    };
+    img.onerror = () => {
+      const c = document.createElement("canvas");
+      c.width = 1;
+      c.height = 1;
+      resolve(c);
+    };
+    img.src = url;
+  });
+}
+
 /* ----------------- State ----------------- */
 const PAPER = {
   A4_P:{ key:"A4_P", label:"A4 hoch", w:2480, h:3508 },
@@ -1193,6 +1227,115 @@ const S = {
 
   window.S = S;
 
+// ---- Single Mode functions ----
+// handle clicking Single Mode button to select images
+$("btnSingleMode").onclick = ()=> {
+  $("singleFiles").click();
+};
+
+// when files are selected for Single Mode
+$("singleFiles").onchange = (e) => {
+  const files = [...e.target.files];
+  S.singleImages = [];
+  const gallery = $("singleGallery");
+  if(gallery) gallery.innerHTML = "";
+  files.forEach((file,i)=>{
+    const url = URL.createObjectURL(file);
+    const div = document.createElement("div");
+    div.style.position = "relative";
+    const img = document.createElement("img");
+    img.src = url;
+    img.style.width = "100%";
+    const lab = document.createElement("div");
+    lab.style.position = "absolute";
+    lab.style.bottom = "4px";
+    lab.style.left = "4px";
+    lab.style.background = "rgba(0,0,0,.7)";
+    lab.style.color = "#fff";
+    lab.style.fontSize = "12px";
+    lab.style.padding = "2px 4px";
+    div.appendChild(img);
+    div.appendChild(lab);
+    div.onclick = ()=> toggleSingle(i);
+    if(gallery) gallery.appendChild(div);
+    S.singleImages.push({ url: url, role: null, label: lab });
+  });
+  const panel = $("singlePanel");
+  if(panel) panel.style.display = "block";
+};
+
+// toggle selection of an image (assign or remove role)
+function toggleSingle(i){
+  const img = S.singleImages[i];
+  if(img.role){
+    img.role = null;
+  } else {
+    const count = S.singleImages.filter(x => x.role).length;
+    const pair = Math.floor(count/2) + 1;
+    if(count % 2 === 0) img.role = "front_"+pair;
+    else img.role = "back_"+pair;
+  }
+  updateSingleLabels();
+}
+
+// update labels after assigning roles
+function updateSingleLabels(){
+  let pair = 1;
+  let front = true;
+  S.singleImages.forEach((img)=>{
+    if(img.role){
+      if(front){
+        img.role = "front_"+pair;
+        img.label.innerText = img.role;
+        front = false;
+      } else {
+        img.role = "back_"+pair;
+        img.label.innerText = img.role;
+        pair++;
+        front = true;
+      }
+    } else {
+      img.label.innerText = "";
+    }
+  });
+}
+
+// Auto pair images between first and last selected
+$("btnAutoPair").onclick = ()=>{
+  const selected = [];
+  S.singleImages.forEach((img,i)=>{
+    if(img.role) selected.push(i);
+  });
+  if(selected.length < 2) return;
+  const start = selected[0];
+  const end = selected[selected.length-1];
+  S.singleImages.forEach(img => img.role = null);
+  let pair = 1;
+  for(let i=start;i<=end;i++){
+    if(((i - start) % 2) === 0) {
+      S.singleImages[i].role = "front_"+pair;
+    } else {
+      S.singleImages[i].role = "back_"+pair;
+      pair++;
+    }
+  }
+  updateSingleLabels();
+};
+
+// Apply selected single images to cells (for preview and export)
+$("btnSingleApply").onclick = ()=>{
+  const fronts = S.singleImages.filter(x => x.role && x.role.startsWith("front"));
+  const backs = S.singleImages.filter(x => x.role && x.role.startsWith("back"));
+  S.cells = [];
+  fronts.forEach((f,i)=>{
+    S.cells.push({
+      idx: i+1,
+      singleFront: f.url,
+      singleBack: backs[i] ? backs[i].url : null
+    });
+  });
+  alert("Einzelbilder geladen – Preview starten");
+};
 
 /* ----------------- UI: file pickers ----------------- */
 onTap($("btnFrontCam"), ()=> $("frontCam").click());
@@ -2772,11 +2915,73 @@ function previewBackIdx(){
   return mapBackIdx(PREVIEW.idx);
 }
 
+// Display preview for Single Mode cells (using full resolution images)
+async function displaySinglePreview(idx){
+  const cell = S.cells[idx-1];
+  if(!cell || !cell.singleFront) return;
+  // Load full resolution front and back (if present)
+  const f0 = await loadCanvasFromDataURL(cell.singleFront);
+  let b0 = null;
+  if(cell.singleBack){
+    b0 = await loadCanvasFromDataURL(cell.singleBack);
+  }
+  // Whiten background (optional)
+  const fExp = maybeWhiten(f0, idx);
+  let bExp = b0 ? maybeWhiten(b0, idx) : null;
+  // Draw original front and back to preview canvases
+  drawFitTo($("knobFront"), f0, "front");
+  if(b0){
+    drawFitTo($("knobBack"),  b0, "back");
+  } else {
+    const c = $("knobBack");
+    const ctx = c.getContext("2d");
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,c.width,c.height);
+  }
+  // Handle pair preview
+  const doPairs = $("pairs").checked;
+  $("pairLabel").style.display = doPairs && bExp ? "block" : "none";
+  $("knobPair").style.display  = doPairs && bExp ? "block" : "none";
+  if(doPairs && bExp){
+    const turns = getPairTurnsForIdx(idx);
+    const rf = rotateCanvasTurns(fExp, turns);
+    const rb = rotateCanvasTurns(bExp, turns);
+    const ms = maybeMatchObjectSizeForPair(rf, rb);
+    const rf2 = ms.front;
+    const rb2 = ms.back;
+    let mode = null;
+    const ov = getPairLayoutOverrideForIdx(idx);
+    if(ov){ mode = ov; }
+    else { mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf2, rb2) : "H"; }
+    const pairC = buildPairCanvas(rf2, rb2, mode);
+    PREVIEW.src.pair = pairC;
+    drawFitTo($("knobPair"), pairC, "pair");
+  } else {
+    const pairCanvas = $("knobPair");
+    const ctx = pairCanvas.getContext("2d");
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,pairCanvas.width,pairCanvas.height);
+    PREVIEW.src.pair = null;
+  }
+  // Update preview sources
+  PREVIEW.src.front = f0;
+  PREVIEW.src.back  = b0;
+  updatePairRotateLabel(idx);
+  updatePairLayoutLabel(idx);
+}
+
 
 function runPreview(requestedIdx, allowDisabled=true){
-  if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
-  buildCells();
-  if(!S.cells.length) return alert("Grid ergibt keine Zellen.");
+  // Determine if we are in Single Mode (cells contain singleFront)
+  const singleMode = S.cells && S.cells.length && S.cells[0].singleFront;
+  if(!singleMode){
+    if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
+    buildCells();
+    if(!S.cells.length) return alert("Grid ergibt keine Zellen.");
+  } else {
+    // In Single Mode: make sure cells exist
+    if(!S.cells.length) return alert("Es wurden keine Einzelbilder gewählt.");
+  }
 
   let idx = clamp(parseInt(requestedIdx||"1",10), 1, S.cells.length);
 // Hinweis, wenn diese Zelle deaktiviert ist (manuelle Eingabe + Preview erlaubt das)
@@ -2798,6 +3003,13 @@ if(dh){
   PREVIEW.idx = idx;
 
 const cellF = S.cells[idx-1];
+  // Single Mode preview: use full-resolution images
+  if(cellF && cellF.singleFront){
+    const dh = $("disabledHint");
+    if(dh) dh.style.display = "none";
+    displaySinglePreview(idx);
+    return;
+  }
 
 const backIdx = mapBackIdx(idx);
 const cellB = S.cells[backIdx-1];
@@ -3209,9 +3421,15 @@ function canvasToBlobAsync(canvas, mime, quality){
 }
 
 $("btnExport").addEventListener("click", async ()=>{
-  if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
-  buildCells();
-  if(!S.cells.length) return alert("Grid ergibt keine Zellen.");
+  const singleModeExport = S.cells && S.cells.length && S.cells[0].singleFront;
+  if(!singleModeExport){
+    if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
+    buildCells();
+    if(!S.cells.length) return alert("Grid ergibt keine Zellen.");
+  } else {
+    // Single Mode: ensure cells exist
+    if(!S.cells.length) return alert("Es wurden keine Einzelbilder gewählt.");
+  }
 
   const es = getExportSettings();
   if(!es.front && !es.back && !es.pair){
@@ -3224,7 +3442,8 @@ $("btnExport").addEventListener("click", async ()=>{
   const { mime, ext } = exportMimeAndExt(fmt);
 
   // Nummerierung nur über die tatsächlich exportierten (aktive) Zellen
-  const activeCells = S.cells.filter(c => !S.disabledCells.has(c.idx));
+  // In Single Mode: ignore disabledCells (all selected images are exported)
+  const activeCells = singleModeExport ? S.cells : S.cells.filter(c => !S.disabledCells.has(c.idx));
   if(activeCells.length === 0){
     alert("Keine aktiven Zellen zum Export (alles deaktiviert).");
     return;
@@ -3249,39 +3468,46 @@ for(const cell of activeCells){
   seq++;
   const n = padN(seq, numWidth);
 
-  const f0 = cropCanvas(S.work.front, cell);
-
-  const backIdx = mapBackIdx(cell.idx);     // <-- EINMAL hier
-  const cellB = S.cells[backIdx - 1];
-  const b0 = cropCanvas(S.work.back, cellB);
-
+  let f0, b0;
   let f, b;
-
-  const mf = S.manualCrop.front[cell.idx];
-  const mb = S.manualCrop.back[backIdx];    // <-- hier nur verwenden
-
-  if(mf) f = cropRect01(f0, mf);
-  else   f = tightOrFull(f0, "front");
-
-  if(mb) b = cropRect01(b0, mb);
-  else   b = tightOrFull(b0, "back");
-
-  if(!f || f.width < 10 || f.height < 10) f = f0;
-  if(!b || b.width < 10 || b.height < 10) b = b0;
+  // Use original images for Single Mode cells
+  if(cell.singleFront){
+    f0 = await loadCanvasFromDataURL(cell.singleFront);
+    if(cell.singleBack){
+      b0 = await loadCanvasFromDataURL(cell.singleBack);
+    } else {
+      b0 = null;
+    }
+    // No cropping in single mode
+    f = f0;
+    b = b0;
+  } else {
+    // Crop from warped images in grid mode
+    f0 = cropCanvas(S.work.front, cell);
+    const backIdx = mapBackIdx(cell.idx);
+    const cellB = S.cells[backIdx - 1];
+    b0 = cropCanvas(S.work.back, cellB);
+    const mf = S.manualCrop.front[cell.idx];
+    const mb = S.manualCrop.back[backIdx];
+    if(mf) f = cropRect01(f0, mf); else f = tightOrFull(f0, "front");
+    if(mb) b = cropRect01(b0, mb); else b = tightOrFull(b0, "back");
+    if(!f || f.width < 10 || f.height < 10) f = f0;
+    if(!b || b.width < 10 || b.height < 10) b = b0;
+  }
 
   // Option: Hintergrund zu reinweiß glätten (global, aber pro Bild override möglich)
   const fExp = maybeWhiten(f, cell.idx);
-  const bExp = maybeWhiten(b, cell.idx);
+  const bExp = b ? maybeWhiten(b, cell.idx) : null;
 
 
     // Dateinamen: <base>_<laufnr>_front.ext usw.
     if(es.front){
       F.file(`${es.base}_${n}_front.${ext}`, await canvasToBlobAsync(fExp, mime, q));
     }
-    if(es.back){
+    if(es.back && bExp){
       B.file(`${es.base}_${n}_back.${ext}`, await canvasToBlobAsync(bExp, mime, q));
     }
-    if(es.pair){
+    if(es.pair && bExp){
   const frontIdx = cell.idx;
 
   const turns = getPairTurnsForIdx(frontIdx);
