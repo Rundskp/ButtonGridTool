@@ -2142,7 +2142,14 @@ if($("singleFiles")){
       div.appendChild(img);
       div.appendChild(lab);
       // Capture the current index for the click handler
-      div.addEventListener("click", () => toggleSingle(i));
+      // Attach the index to the div so the click handler can reliably find it later
+      div.dataset.index = String(i);
+      div.addEventListener("click", (ev) => {
+        const target = ev.currentTarget;
+        const idxStr = target && target.dataset ? target.dataset.index : null;
+        const idx = idxStr ? parseInt(idxStr, 10) : i;
+        toggleSingle(idx);
+      });
       if(gallery) gallery.appendChild(div);
       // Generate gallery thumbnail
       try{
