@@ -125,13 +125,15 @@
 </head>
 <body>
 <header>
-  <h1>ButtonGridTool-Wizard</h1>
+<!-- shortened title: remove '-Wizard' so that Single button fits in one row -->
+<h1>ButtonGridTool</h1>
   <div class="hdrBtns">
     <button id="btnHelp" title="Hilfe">?</button>
     <button id="btnDonate" title="Spenden">☕️</button>
     <button id="btnGear" title="Einstellungen">⚙️</button>
     <!-- Einzelmodus: zusätzlicher Button und versteckter Dateiupload -->
-    <button id="btnSingleMode">Einzelmodus</button>
+    <!-- Shorten the single mode button label to keep header in one row -->
+    <button id="btnSingleMode">Single</button>
     <input id="singleFiles" type="file" accept="image/*" multiple hidden />
   </div>
 </header>
@@ -2279,6 +2281,13 @@ async function displaySinglePreview(idx){
   }
   if(fCrop && (fCrop.width < 10 || fCrop.height < 10)) fCrop = frontCanvas;
   if(bCrop && (bCrop.width < 10 || bCrop.height < 10)) bCrop = backCanvas;
+
+  // Copy debug information from the cropped canvases back to the original
+  // so that the debug overlay matches the auto-crop used for pair preview
+  try{
+    if(fCrop && fCrop.__dbg && frontCanvas) frontCanvas.__dbg = fCrop.__dbg;
+    if(bCrop && bCrop.__dbg && backCanvas) backCanvas.__dbg = bCrop.__dbg;
+  }catch(e){}
   // pair preview
   const showPair = $("pairs") && $("pairs").checked;
   if(showPair && fCrop && bCrop){
@@ -2306,6 +2315,14 @@ async function displaySinglePreview(idx){
   }
   updatePairRotateLabel(idx);
   updatePairLayoutLabel(idx);
+
+  // Scroll preview into view so that navigation doesn't require manual scrolling
+  try{
+    const wrap = document.getElementById("wrapFront");
+    if(wrap){
+      wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }catch(e){}
 }
 
 /* ----------------- Cells + preview + export ----------------- */
@@ -2671,46 +2688,66 @@ function drawFitTo(canvas, src, side){
   if(side==="back")  PREVIEW.fits.knobBack  = fit;
   if(side==="pair")  PREVIEW.fits.knobPair  = fit;
 
-  // Overlay nur für front/back
-  if(side==="pair") return;
+  // Draw overlay for front/back if debug overlay is enabled or manual crop exists
+  if(side !== "pair"){
+    const chk = $("debugOverlay");
+    const keyIdx = (side === "back") ? previewBackIdx() : PREVIEW.idx;
+    const wantsOverlay =
+      !!(chk && chk.checked) ||
+      !!S.manualCrop?.[side]?.[keyIdx];
+    if(wantsOverlay){
+      const rect01 = getVisibleRect01(side, keyIdx, src);
+      const rp = rect01ToCanvasPx(rect01, {x,y,w,h});
+      ctx.save();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(220,0,0,0.95)";
+      ctx.strokeRect(rp.x, rp.y, rp.w, rp.h);
+      // Draw drag handles (larger for touch)
+      const L = 28;
+      const R = 10;
+      const mx = rp.x + rp.w/2;
+      const my = rp.y + rp.h/2;
+      ctx.beginPath();
+      ctx.moveTo(rp.x, my); ctx.lineTo(rp.x + L, my);
+      ctx.moveTo(rp.x + rp.w, my); ctx.lineTo(rp.x + rp.w - L, my);
+      ctx.moveTo(mx, rp.y); ctx.lineTo(mx, rp.y + L);
+      ctx.moveTo(mx, rp.y + rp.h); ctx.lineTo(mx, rp.y + rp.h - L);
+      ctx.stroke();
+      // Circles for drag handles
+      ctx.fillStyle = "rgba(220,0,0,0.85)";
+      const dot = (cx,cy)=>{ ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fill(); };
+      dot(rp.x, my);
+      dot(rp.x + rp.w, my);
+      dot(mx, rp.y);
+      dot(mx, rp.y + rp.h);
+      ctx.restore();
+    }
+  }
 
-  // Overlay immer, sobald DebugOverlay an ist ODER manuelle Werte existieren
-  const chk = $("debugOverlay");
-  const keyIdx = (side === "back") ? previewBackIdx() : PREVIEW.idx;
-
-  const wantsOverlay =
-    !!(chk && chk.checked) ||
-    !!S.manualCrop?.[side]?.[keyIdx];
-
-  if(wantsOverlay){
-    const rect01 = getVisibleRect01(side, keyIdx, src);
-    const rp = rect01ToCanvasPx(rect01, {x,y,w,h});
-    ctx.save();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(220,0,0,0.95)";
-    ctx.strokeRect(rp.x, rp.y, rp.w, rp.h);
-
-    // Greifpunkte (größer, iPhone-tauglich)
-    const L = 28;
-    const R = 10;
-    const mx = rp.x + rp.w/2;
-    const my = rp.y + rp.h/2;
-
-    ctx.beginPath();
-    ctx.moveTo(rp.x, my); ctx.lineTo(rp.x + L, my);
-    ctx.moveTo(rp.x + rp.w, my); ctx.lineTo(rp.x + rp.w - L, my);
-    ctx.moveTo(mx, rp.y); ctx.lineTo(mx, rp.y + L);
-    ctx.moveTo(mx, rp.y + rp.h); ctx.lineTo(mx, rp.y + rp.h - L);
-    ctx.stroke();
-
-    // Kreise einzeln füllen (sonst verbindet Canvas die Subpaths -> Dreiecke)
-    ctx.fillStyle = "rgba(220,0,0,0.85)";
-    const dot = (cx,cy)=>{ ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fill(); };
-    dot(rp.x, my);
-    dot(rp.x + rp.w, my);
-    dot(mx, rp.y);
-    dot(mx, rp.y + rp.h);
-    ctx.restore();
+  // Draw a small label inside the image to identify side (Front/Back/Pair)
+  if(side){
+    let labelText;
+    if(side === "front") labelText = "Front";
+    else if(side === "back") labelText = "Back";
+    else if(side === "pair") labelText = "Pair";
+    if(labelText){
+      ctx.save();
+      // choose font size relative to canvas height (approx 4%)
+      const fontSize = Math.max(14, Math.min(18, Math.floor(canvas.height * 0.04)));
+      ctx.font = `600 ${fontSize}px -apple-system`;
+      const metrics = ctx.measureText(labelText);
+      const boxW = metrics.width + 12;
+      const boxH = fontSize + 8;
+      const labelX = x + 6;
+      const labelY = y + 6;
+      // dark semi-transparent background
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(labelX, labelY, boxW, boxH);
+      ctx.fillStyle = "#fff";
+      ctx.textBaseline = "top";
+      ctx.fillText(labelText, labelX + 6, labelY + 4);
+      ctx.restore();
+    }
   }
 }
 function redrawPreviewSide(side){
@@ -3171,11 +3208,13 @@ function nextEnabledIdx(fromIdx, dir){
   if(!S.cells || !S.cells.length) buildCells();
   const max = S.cells.length;
   let i = clamp(fromIdx, 1, max);
-
+  // In single mode all cells are active regardless of disabledCells
+  const isSingle = S.cells && S.cells.length && S.cells[0] && Object.prototype.hasOwnProperty.call(S.cells[0], "singleFront");
   while(true){
     i += dir;
-    if(i < 1 || i > max) return fromIdx;   // Ende -> bleib stehen
-    if(!S.disabledCells.has(i)) return i;  // nächste aktive
+    // stop at ends
+    if(i < 1 || i > max) return fromIdx;
+    if(isSingle || !S.disabledCells.has(i)) return i;  // in single mode ignore disabled
   }
 }
 function step4Go(dir){
