@@ -263,7 +263,27 @@
       <span id="prevState" class="badge warn">wartet</span>
     </div>
 
-    <!-- Navigation row: placed above the images so no scrolling is needed -->
+    <!-- Options row: background removal and pair layout -->
+    <div class="row">
+      <span class="pill"><b>Weiß</b>
+        <label style="display:inline-flex; gap:6px; align-items:center;">
+          <input type="checkbox" id="whiteBg"> BG entfernen
+        </label>
+      </span>
+      <button id="btnPairRotate" disabled title="Pair-Layout drehen (Front+Back je 90°)">⟳ Pair</button>
+      <button id="btnPairLayout" disabled title="Pair-Layout für dieses Bild: Auto ↔ ↕">↔ Auto</button>
+    </div>
+
+    <!-- Reset/Pairs row: pairs checkbox and reset crop (placed before navigation) -->
+    <div class="row">
+      <button id="btnResetCrop" disabled>Reset Crop</button>
+      <span class="pill"><b>Pairs</b>
+        <input id="pairs" type="checkbox" checked />
+      </span>
+      <span id="disabledHint" class="badge warn" style="display:none;">deaktiviert</span>
+    </div>
+
+    <!-- Navigation row: placed directly above the images (prev/next/index/preview) -->
     <div class="row">
       <button id="btnPrev" disabled>◀︎</button>
       <span class="pill"><b>Knopf #</b>
@@ -272,29 +292,6 @@
       </span>
       <button id="btnNext" disabled>▶︎</button>
       <button id="btnPreview" class="primary" disabled>Preview</button>
-      <button id="btnResetCrop" disabled>Reset Crop</button>
-      <span id="disabledHint" class="badge warn" style="display:none;">deaktiviert</span>
-    </div>
-    <!-- Options row: pairs, mapping, background removal and pair layout -->
-    <div class="row">
-      <span class="pill"><b>Pairs</b>
-        <input id="pairs" type="checkbox" checked />
-      </span>
-      <span class="pill"><b>Back Mapping</b>
-        <select id="backMapStep4">
-          <option value="none" selected>Normal</option>
-          <option value="mx">Spiegel horizontal (L↔R)</option>
-          <option value="my">Spiegel vertikal (O↔U)</option>
-          <option value="mxy">180° (beides)</option>
-        </select>
-      </span>
-      <span class="pill"><b>Weiß</b>
-        <label style="display:inline-flex; gap:6px; align-items:center;">
-          <input type="checkbox" id="whiteBg"> BG entfernen
-        </label>
-      </span>
-      <button id="btnPairRotate" disabled title="Pair-Layout drehen (Front+Back je 90°)">⟳ Pair</button>
-      <button id="btnPairLayout" disabled title="Pair-Layout für dieses Bild: Auto ↔ ↕">↔ Auto</button>
     </div>
 
     <div class="split">
@@ -2077,7 +2074,7 @@ if($("singleFiles")){
     S.selectedIndices = [];
     const gallery = $("singleGallery");
     if(gallery) gallery.innerHTML = "";
-    // For each file, create a div and generate a small thumbnail asynchronously
+    // For each file, create a div and show the system thumbnail via object URL
     files.forEach((file, i) => {
       const div = document.createElement("div");
       div.style.position = "relative";
@@ -2096,26 +2093,10 @@ if($("singleFiles")){
       div.appendChild(lab);
       div.addEventListener("click", () => toggleSingle(i));
       if(gallery) gallery.appendChild(div);
-      // Initialize the single image entry
-      S.singleImages.push({ file, thumbUrl: null, role: null, label: lab });
-      // Generate a thumbnail (max 400px) asynchronously. If it fails, fall back to objectURL
-      loadPreviewCanvasFromFile(file, 400).then(cnv => {
-        try{
-          const thumb = cnv.toDataURL("image/jpeg", 0.8);
-          img.src = thumb;
-          S.singleImages[i].thumbUrl = thumb;
-        }catch(err){
-          console.warn("Thumbnail toDataURL failed", err);
-          const url = URL.createObjectURL(file);
-          img.src = url;
-          S.singleImages[i].thumbUrl = url;
-        }
-      }).catch(err => {
-        console.warn("Thumbnail generation failed", err);
-        const url = URL.createObjectURL(file);
-        img.src = url;
-        S.singleImages[i].thumbUrl = url;
-      });
+      const url = URL.createObjectURL(file);
+      img.src = url;
+      // Note: do not revoke the object URL until after the gallery is closed
+      S.singleImages.push({ file, url, role: null, label: lab });
     });
     // Show the panel as soon as images are selected
     const panel = $("singlePanel");
