@@ -1139,6 +1139,24 @@ async function loadImageFileToCanvas(file){
   }
 }
 
+// Scale down a canvas to a maximum dimension (width or height)
+// to reduce memory usage during preview. The full-resolution data
+// remains available via DataURL for export. If the canvas is
+// already smaller than maxDim, it is returned unchanged.
+function scaleCanvas(srcCanvas, maxDim = 1600){
+  if(!srcCanvas) return srcCanvas;
+  const w = srcCanvas.width;
+  const h = srcCanvas.height;
+  if(w <= maxDim && h <= maxDim) return srcCanvas;
+  const ratio = Math.min(maxDim / w, maxDim / h);
+  const out = document.createElement("canvas");
+  out.width  = Math.round(w * ratio);
+  out.height = Math.round(h * ratio);
+  const ctx = out.getContext("2d");
+  ctx.drawImage(srcCanvas, 0, 0, out.width, out.height);
+  return out;
+}
+
 /* ----------------- State ----------------- */
 const PAPER = {
   A4_P:{ key:"A4_P", label:"A4 hoch", w:2480, h:3508 },
@@ -2229,8 +2247,18 @@ async function displaySinglePreview(idx){
   PREVIEW.idx = idx;
   $("idx").value = idx;
   // load full-resolution front/back
-  const frontCanvas = cell.singleFront ? await loadCanvasFromDataURL(cell.singleFront) : null;
-  const backCanvas  = cell.singleBack ? await loadCanvasFromDataURL(cell.singleBack) : null;
+  let frontCanvas = cell.singleFront ? await loadCanvasFromDataURL(cell.singleFront) : null;
+  let backCanvas  = cell.singleBack ? await loadCanvasFromDataURL(cell.singleBack) : null;
+  // scale canvases down for preview (full resolution is only used for export)
+  // This reduces memory and processing when handling large photos.
+  try{
+    if(frontCanvas){
+      frontCanvas = scaleCanvas(frontCanvas, 2000);
+    }
+    if(backCanvas){
+      backCanvas = scaleCanvas(backCanvas, 2000);
+    }
+  }catch(e){ console.warn("scaleCanvas failed", e); }
   // store uncropped canvases for redraw and overlay
   PREVIEW.src.front = frontCanvas;
   PREVIEW.src.back  = backCanvas;
