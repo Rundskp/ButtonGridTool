@@ -1139,9 +1139,58 @@ async function loadImageFileToCanvas(file){
 // dimension. This preserves the aspect ratio and avoids distortion.
 async function loadPreviewCanvasFromFile(file, maxDim = 2000){
   if(!file) return null;
-  // Always decode the full image (handles HEIC/HEIF) and then scale
+  // Try to use createImageBitmap to decode and resize in one step, preserving aspect ratio
+  if(typeof createImageBitmap === 'function'){
+    try{
+      const bm = await createImageBitmap(file, { resizeWidth: maxDim, resizeQuality: 'high' });
+      const canvas = document.createElement('canvas');
+      canvas.width  = bm.width;
+      canvas.height = bm.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bm, 0, 0);
+      if(typeof bm.close === 'function') bm.close();
+      return canvas;
+    }catch(err){
+      console.warn('createImageBitmap for preview failed', err);
+    }
+  }
+  // Fallback: decode full image and scale down
   const full = await loadImageFileToCanvas(file);
   return scaleCanvas(full, maxDim);
+}
+
+// Create a small thumbnail DataURL from a File. This function uses
+// createImageBitmap with resizeWidth to preserve aspect ratio and reduce
+// memory usage. If createImageBitmap is unavailable or fails, it
+// falls back to loading the full image and scaling it down.
+async function createThumbnail(file, maxDim = 400){
+  if(!file) return null;
+  // Try using createImageBitmap with a single resize dimension
+  if(typeof createImageBitmap === "function"){
+    try{
+      // Only set resizeWidth to preserve aspect ratio
+      const bm = await createImageBitmap(file, { resizeWidth: maxDim, resizeQuality: 'high' });
+      const canvas = document.createElement("canvas");
+      canvas.width  = bm.width;
+      canvas.height = bm.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(bm, 0, 0);
+      // Release the bitmap if possible
+      if(typeof bm.close === "function") bm.close();
+      return canvas.toDataURL("image/jpeg", 0.75);
+    }catch(err){
+      console.warn("createImageBitmap thumbnail failed", err);
+    }
+  }
+  // Fallback: load the full image and scale it down
+  try{
+    const full = await loadImageFileToCanvas(file);
+    const scaled = scaleCanvas(full, maxDim);
+    return scaled.toDataURL("image/jpeg", 0.75);
+  }catch(err){
+    console.warn("createThumbnail fallback failed", err);
+    return null;
+  }
 }
 
 // Scale down a canvas to a maximum dimension (width or height)
@@ -2066,7 +2115,7 @@ if($("btnSingleMode")){
 
 // Handle file selection: load selected images into the single mode gallery
 if($("singleFiles")){
-  $("singleFiles").addEventListener("change", (e) => {
+  $("singleFiles").addEventListener("change", async (e) => {
     const files = [...(e.target?.files || [])];
     // Reset single mode state
     S.singleMode = true;
@@ -2074,8 +2123,8 @@ if($("singleFiles")){
     S.selectedIndices = [];
     const gallery = $("singleGallery");
     if(gallery) gallery.innerHTML = "";
-    // For each file, create a div and show the system thumbnail via object URL
-    files.forEach((file, i) => {
+    // For each file, create a div and show a scaled thumbnail
+    await Promise.all(files.map(async (file, i) => {
       const div = document.createElement("div");
       div.style.position = "relative";
       const img = document.createElement("img");
@@ -2093,18 +2142,28 @@ if($("singleFiles")){
       div.appendChild(lab);
       div.addEventListener("click", () => toggleSingle(i));
       if(gallery) gallery.appendChild(div);
-      const url = URL.createObjectURL(file);
-      img.src = url;
-      // Note: do not revoke the object URL until after the gallery is closed
-      S.singleImages.push({ file, url, role: null, label: lab });
-    });
+      try{
+        const thumb = await createThumbnail(file, 400);
+        if(thumb){
+          img.src = thumb;
+        } else {
+          // Fallback: use object URL as thumbnail
+          const url = URL.createObjectURL(file);
+          img.src = url;
+        }
+      }catch(err){
+        const url = URL.createObjectURL(file);
+        img.src = url;
+      }
+      // Store file for full-resolution processing, thumbnail will be generated on the fly
+      S.singleImages.push({ file, role: null, label: lab });
+    }));
     // Show the panel as soon as images are selected
     const panel = $("singlePanel");
     if(panel){
       panel.style.display = files.length ? "block" : "none";
       // scroll into view when images are selected
       if(files.length){
-        // slight delay to allow DOM to update
         setTimeout(() => {
           try{
             panel.scrollIntoView({ behavior: "smooth", block: "start" });
