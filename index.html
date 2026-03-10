@@ -157,6 +157,8 @@
     <!-- Shorten the single mode button label to keep header in one row -->
     <button id="btnSingleMode">Single</button>
     <input id="singleFiles" type="file" accept="image/*" multiple hidden />
+    <!-- Restore from backup -->
+    <button id="btnRestore" title="Backup wiederherstellen">🔄</button>
   </div>
 </header>
 
@@ -2269,6 +2271,13 @@ if($("btnAutoPair")){
   });
 }
 
+// Restore backup when the restore button is clicked
+if($("btnRestore")){
+  $("btnRestore").addEventListener("click", () => {
+    restoreBackup();
+  });
+}
+
 // Apply single mode selections to cells and enable preview/export
 if($("btnSingleApply")){
   $("btnSingleApply").addEventListener("click", async () => {
@@ -2350,6 +2359,12 @@ async function displaySinglePreview(idx){
   if(dh) dh.style.display = "none";
   PREVIEW.idx = idx;
   $("idx").value = idx;
+  // Update the white background checkbox to reflect the current image's setting (override or global)
+  if($("whiteBg")){
+    try{
+      $("whiteBg").checked = isWhiteBgForIdx(idx);
+    }catch(e){}
+  }
   // load preview-sized front/back. Use the file objects stored in the cell and
   // scale down large images to reduce memory usage. Only the full
   // resolution will be loaded later during export.
@@ -3074,33 +3089,32 @@ function whitenBackground(srcCanvas){
   const ctx = out.getContext("2d", { willReadFrequently:true });
   ctx.drawImage(srcCanvas, 0, 0);
 
-  const bg = approxBgColor(out);
-  const img = ctx.getImageData(0,0,out.width,out.height);
-  const d = img.data;
-
-  // Toleranzen: lieber etwas konservativer (Objekt nicht ausfransen)
-  const thr = 38;                  // RGB-Distanz
-  const feather = getFeatherPx();  // weicher Übergang zum Weiß
-  const thr2 = thr*thr;
-  const thrF = thr + feather;
-  const thrF2 = thrF*thrF;
-
-  for(let i=0;i<d.length;i+=4){
-    const dr = d[i]   - bg.r;
-    const dg = d[i+1] - bg.g;
-    const db = d[i+2] - bg.b;
-    const dist2 = dr*dr + dg*dg + db*db;
-    if(dist2 <= thr2){
-      d[i] = 255; d[i+1] = 255; d[i+2] = 255;
-    }else if(feather > 0 && dist2 <= thrF2){
-      const dist = Math.sqrt(dist2);
-      const a = (thrF - dist) / feather; // 0..1
-      d[i]   = Math.round(d[i]   * (1-a) + 255 * a);
-      d[i+1] = Math.round(d[i+1] * (1-a) + 255 * a);
-      d[i+2] = Math.round(d[i+2] * (1-a) + 255 * a);
+  // Try to detect the foreground object. If detected, whiten only outside the bounding box to ensure the object
+  // itself remains untouched. Otherwise fall back to distance-based background whitening.
+  const fg = detectForegroundBBox(out);
+  if(fg){
+    const img = ctx.getImageData(0,0,out.width,out.height);
+    const d = img.data;
+    // Compute bounding coordinates (inclusive)
+    const x0 = Math.max(0, Math.floor(fg.x));
+    const y0 = Math.max(0, Math.floor(fg.y));
+    const x1 = Math.min(out.width - 1,  Math.ceil(fg.x + fg.w - 1));
+    const y1 = Math.min(out.height - 1, Math.ceil(fg.y + fg.h - 1));
+    for(let y=0; y<out.height; y++){
+      for(let x=0; x<out.width; x++){
+        if(x < x0 || x > x1 || y < y0 || y > y1){
+          const idx = (y*out.width + x) * 4;
+          d[idx] = 255;
+          d[idx+1] = 255;
+          d[idx+2] = 255;
+        }
+      }
     }
+    ctx.putImageData(img,0,0);
+    return out;
   }
-  ctx.putImageData(img,0,0);
+
+  // If no foreground detected, return the canvas unchanged.  This avoids whitening the object unintentionally.
   return out;
 }
 
@@ -3195,6 +3209,57 @@ function maybeMatchObjectSizeForPair(frontCanvas, backCanvas){
     front: scaleCanvasToMatchLongEdge(frontCanvas, bf, target),
     back : scaleCanvasToMatchLongEdge(backCanvas,  bb, target)
   };
+}
+
+// ===== Auto-save and restore =====
+// Regularly save important state to localStorage so that the session can be restored after a crash or refresh.
+function saveBackup(){
+  try{
+    const backup = {
+      // grid lines and disabled cells
+      xRel: Array.isArray(S.xRel) ? [...S.xRel] : [],
+      yRel: Array.isArray(S.yRel) ? [...S.yRel] : [],
+      disabledCells: S.disabledCells ? [...S.disabledCells] : [],
+      // overrides for preview (whiteBg, pairTurns, pairLayout)
+      previewOverrides: S.previewOverrides || {},
+      // manual crop overrides for each cell
+      manualCrop: S.manualCrop || {}
+    };
+    localStorage.setItem("BGT_backup", JSON.stringify(backup));
+  }catch(err){
+    console.warn("Backup speichern fehlgeschlagen", err);
+  }
+}
+
+function restoreBackup(){
+  try{
+    const data = localStorage.getItem("BGT_backup");
+    if(!data){
+      alert("Kein Backup gefunden.");
+      return;
+    }
+    const backup = JSON.parse(data);
+    if(Array.isArray(backup.xRel)) S.xRel = backup.xRel;
+    if(Array.isArray(backup.yRel)) S.yRel = backup.yRel;
+    if(Array.isArray(backup.disabledCells)) S.disabledCells = new Set(backup.disabledCells);
+    if(backup.previewOverrides) S.previewOverrides = backup.previewOverrides;
+    if(backup.manualCrop) S.manualCrop = backup.manualCrop;
+    // Re-render grid if possible
+    if(typeof renderGrid === 'function'){
+      try{ renderGrid(); }catch(err){}
+    }
+    // refresh preview if available
+    try{
+      const idx = PREVIEW.idx || parseInt($("idx").value||"1",10);
+      if(S.cells && S.cells.length){
+        runPreview(idx, true);
+      }
+    }catch(err){}
+    setStatus("Backup wiederhergestellt.");
+  }catch(err){
+    console.error(err);
+    alert("Backup wiederherstellen fehlgeschlagen.");
+  }
 }
 
 /* ===== FIX #2: Preview zeigt volle Zelle + Overlay; Pair zeigt crop ===== */
@@ -3303,8 +3368,8 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
   if(!b || b.width < 10 || b.height < 10) b = b0;
 
   // Preview-Optionen: global aus Settings, aber pro Bild overridbar
-  const wOpt = $("whiteBg");
-  if(wOpt) wOpt.checked = isWhiteBgForIdx(idx);
+    const wOpt = $("whiteBg");
+    if(wOpt) wOpt.checked = isWhiteBgForIdx(idx);
 
   const fExp = maybeWhiten(f, idx);
   const bExp = maybeWhiten(b, idx);
@@ -3356,19 +3421,40 @@ function nextEnabledIdx(fromIdx, dir){
   }
 }
 function step4Go(dir){
+  // Ensure cells are built
   if(!S.cells || !S.cells.length){
     buildCells();
     if(!S.cells.length) return;
   }
-  const cur  = clamp(PREVIEW.idx || parseInt($("idx").value||"1",10), 1, S.cells.length);
-  const next = nextEnabledIdx(cur, dir);
-
+  // Determine current index from PREVIEW or idx input
+  let cur = PREVIEW.idx;
+  if(!cur){
+    cur = parseInt($("idx").value || "1", 10);
+  }
+  cur = clamp(cur, 1, S.cells.length);
+  let next = cur;
+  const isSingle = S.cells && S.cells[0] && Object.prototype.hasOwnProperty.call(S.cells[0], "singleFrontFile");
+  if(isSingle){
+    // Simple sequential navigation in single mode
+    next = cur + dir;
+    if(next < 1 || next > S.cells.length) next = cur;
+  } else {
+    // In grid mode, step to the next/previous non-disabled cell
+    next = cur + dir;
+    // Skip over disabled cells
+    while(next >= 1 && next <= S.cells.length && S.disabledCells && S.disabledCells.has(next)){
+      next += dir;
+    }
+    // Clamp to range; if no valid cell in that direction, stay
+    if(next < 1 || next > S.cells.length) next = cur;
+  }
   $("idx").value = next;
-  runPreview(next, false); // deaktivierte überspringen
+  // Trigger preview for the new index; do not skip disabled (already handled above)
+  runPreview(next, false);
 }
 
-$("btnPrev")?.addEventListener("click", ()=> step4Go(-1));
-$("btnNext")?.addEventListener("click", ()=> step4Go(+1));
+// Removed explicit click handlers for Prev/Next to avoid double navigation.
+// Navigation is handled in repeatWhileHeld via pointer events.
 
 $("btnPairRotate")?.addEventListener("click", ()=>{
   if(!S.previewOverrides) S.previewOverrides = { whiteBg:{}, pairTurns:{} };
@@ -3691,9 +3777,117 @@ function canvasToBlobAsync(canvas, mime, quality){
 }
 
 $("btnExport").addEventListener("click", async ()=>{
-  // If we are in single mode (cells contain singleFrontFile), export directly from selected images
-  const isSingle = S.cells && S.cells.length && S.cells[0] && Object.prototype.hasOwnProperty.call(S.cells[0], "singleFrontFile");
-  if(isSingle){
+  // Use a try/catch around the export logic to prevent the page from crashing on errors.
+  try{
+    // If we are in single mode (cells contain singleFrontFile), export directly from selected images
+    const isSingle = S.cells && S.cells.length && S.cells[0] && Object.prototype.hasOwnProperty.call(S.cells[0], "singleFrontFile");
+    if(isSingle){
+      const es = getExportSettings();
+      if(!es.front && !es.back && !es.pair){
+        alert("Bitte mindestens Front, Back oder Pair anhaken.");
+        return;
+      }
+      const fmt = String($("fmt").value || "jpg").toLowerCase();
+      const q   = parseInt($("jpgq").value,10)/100;
+      const { mime, ext } = exportMimeAndExt(fmt);
+      const activeCells = S.cells;
+      if(activeCells.length === 0){
+        alert("Keine Paare zum Export.");
+        return;
+      }
+      const numWidth = Math.max(3, String(activeCells.length).length);
+      const zip = new JSZip();
+      const baseFolder = zip.folder(es.base);
+      const F = es.front ? baseFolder.folder("front") : null;
+      const B = es.back  ? baseFolder.folder("back")  : null;
+      const P = es.pair  ? baseFolder.folder("pairs") : null;
+      setStatus("Export läuft…");
+      let exported = 0;
+      let seq = 0;
+      for(const cell of activeCells){
+        seq++;
+        const n = padN(seq, numWidth);
+        // Load original images from their File objects. Use full resolution for export.
+        let frontCanvas = null;
+        let backCanvas  = null;
+        try{
+          if(cell.singleFrontFile){
+            frontCanvas = await loadImageFileToCanvas(cell.singleFrontFile);
+          }
+          if(cell.singleBackFile){
+            backCanvas = await loadImageFileToCanvas(cell.singleBackFile);
+          }
+        }catch(err){
+          console.warn("Error loading full-resolution images", err);
+        }
+        // Apply auto crop and manual crop just like the grid workflow
+        let fCrop = frontCanvas;
+        let bCrop = backCanvas;
+        const idx = cell.idx;
+        const mf = S.manualCrop.front && S.manualCrop.front[idx];
+        const mb = S.manualCrop.back  && S.manualCrop.back[idx];
+        if(mf && frontCanvas){
+          fCrop = cropRect01(frontCanvas, mf);
+        } else if(frontCanvas){
+          fCrop = tightOrFull(frontCanvas, "front");
+        }
+        if(mb && backCanvas){
+          bCrop = cropRect01(backCanvas, mb);
+        } else if(backCanvas){
+          bCrop = tightOrFull(backCanvas, "back");
+        }
+        // Fallback to original if crop is too small or missing
+        if(fCrop && (fCrop.width < 10 || fCrop.height < 10)) fCrop = frontCanvas;
+        if(bCrop && (bCrop.width < 10 || bCrop.height < 10)) bCrop = backCanvas;
+        // Whiten backgrounds (if enabled)
+        const fExp = fCrop ? maybeWhiten(fCrop, idx) : null;
+        const bExp = bCrop ? maybeWhiten(bCrop, idx) : null;
+        // Write individual files
+        if(es.front && fExp && F){
+          const blobF = await canvasToBlobAsync(fExp, mime, q);
+          F.file(`${es.base}_${n}_front.${ext}`, blobF);
+        }
+        if(es.back && bExp && B){
+          const blobB = await canvasToBlobAsync(bExp, mime, q);
+          B.file(`${es.base}_${n}_back.${ext}`, blobB);
+        }
+        // Pair: only if both sides exist
+        if(es.pair && fExp && bExp && P){
+          const turns = getPairTurnsForIdx(idx);
+          let rf = rotateCanvasTurns(fExp, turns);
+          let rb = rotateCanvasTurns(bExp, turns);
+          const ms = maybeMatchObjectSizeForPair(rf, rb);
+          rf = ms.front;
+          rb = ms.back;
+          const ov = getPairLayoutOverrideForIdx(idx);
+          const mode = ov ? ov : (getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H");
+          const pairCanvas = buildPairCanvas(rf, rb, mode);
+          const blobP = await canvasToBlobAsync(pairCanvas, mime, q);
+          P.file(`${es.base}_${n}_pair.${ext}`, blobP);
+        }
+        // Help GC by clearing references
+        frontCanvas = null;
+        backCanvas = null;
+        fCrop = null;
+        bCrop = null;
+        exported++;
+        if(exported % 5 === 0) setStatus(`Export… ${exported}/${activeCells.length}…`);
+      }
+      const outBlob = await zip.generateAsync({type:"blob"});
+      downloadBlob(outBlob, `${es.base}.zip`);
+      setStatus(`Fertig. Exportiert: ${exported} Paare.`);
+      return;
+    }
+
+    if(!S.work.front || !S.work.back){
+      alert("Front & Back müssen bereit sein (entzerrt oder raw).");
+      return;
+    }
+    buildCells();
+    if(!S.cells.length){
+      alert("Grid ergibt keine Zellen.");
+      return;
+    }
     const es = getExportSettings();
     if(!es.front && !es.back && !es.pair){
       alert("Bitte mindestens Front, Back oder Pair anhaken.");
@@ -3702,191 +3896,108 @@ $("btnExport").addEventListener("click", async ()=>{
     const fmt = String($("fmt").value || "jpg").toLowerCase();
     const q   = parseInt($("jpgq").value,10)/100;
     const { mime, ext } = exportMimeAndExt(fmt);
-    const activeCells = S.cells;
+
+    // Nummerierung nur über die tatsächlich exportierten (aktive) Zellen
+    const activeCells = S.cells.filter(c => !S.disabledCells.has(c.idx));
     if(activeCells.length === 0){
-      alert("Keine Paare zum Export.");
+      alert("Keine aktiven Zellen zum Export (alles deaktiviert).");
       return;
     }
-    const numWidth = Math.max(3, String(activeCells.length).length);
+
+    const numWidth = Math.max(3, String(activeCells.length).length); // mind. 3-stellig
+
     const zip = new JSZip();
     const baseFolder = zip.folder(es.base);
+
+    // optional: Unterordner nur wenn gebraucht
     const F = es.front ? baseFolder.folder("front") : null;
     const B = es.back  ? baseFolder.folder("back")  : null;
     const P = es.pair  ? baseFolder.folder("pairs") : null;
+
     setStatus("Export läuft…");
+
     let exported = 0;
     let seq = 0;
+
     for(const cell of activeCells){
       seq++;
       const n = padN(seq, numWidth);
-      // Load original images from their File objects. Use full resolution for export.
-      let frontCanvas = null;
-      let backCanvas  = null;
-      try{
-        if(cell.singleFrontFile){
-          frontCanvas = await loadImageFileToCanvas(cell.singleFrontFile);
-        }
-        if(cell.singleBackFile){
-          backCanvas = await loadImageFileToCanvas(cell.singleBackFile);
-        }
-      }catch(err){
-        console.warn("Error loading full-resolution images", err);
-      }
-      // Apply auto crop and manual crop just like the grid workflow
-      let fCrop = frontCanvas;
-      let bCrop = backCanvas;
-      const idx = cell.idx;
-      const mf = S.manualCrop.front && S.manualCrop.front[idx];
-      const mb = S.manualCrop.back  && S.manualCrop.back[idx];
-      if(mf && frontCanvas){
-        fCrop = cropRect01(frontCanvas, mf);
-      } else if(frontCanvas){
-        fCrop = tightOrFull(frontCanvas, "front");
-      }
-      if(mb && backCanvas){
-        bCrop = cropRect01(backCanvas, mb);
-      } else if(backCanvas){
-        bCrop = tightOrFull(backCanvas, "back");
-      }
-      // Fallback to original if crop is too small or missing
-      if(fCrop && (fCrop.width < 10 || fCrop.height < 10)) fCrop = frontCanvas;
-      if(bCrop && (bCrop.width < 10 || bCrop.height < 10)) bCrop = backCanvas;
-      // Whiten backgrounds (if enabled)
-      const fExp = fCrop ? maybeWhiten(fCrop, idx) : null;
-      const bExp = bCrop ? maybeWhiten(bCrop, idx) : null;
-      // Write individual files
-      if(es.front && fExp){
+
+      const f0 = cropCanvas(S.work.front, cell);
+
+      const backIdx = mapBackIdx(cell.idx);
+      const cellB = S.cells[backIdx - 1];
+      const b0 = cropCanvas(S.work.back, cellB);
+
+      let f, b;
+
+      const mf = S.manualCrop.front[cell.idx];
+      const mb = S.manualCrop.back[backIdx];
+
+      if(mf) f = cropRect01(f0, mf);
+      else   f = tightOrFull(f0, "front");
+
+      if(mb) b = cropRect01(b0, mb);
+      else   b = tightOrFull(b0, "back");
+
+      if(!f || f.width < 10 || f.height < 10) f = f0;
+      if(!b || b.width < 10 || b.height < 10) b = b0;
+
+      // Option: Hintergrund zu reinweiß glätten (global, aber pro Bild override möglich)
+      const fExp = maybeWhiten(f, cell.idx);
+      const bExp = maybeWhiten(b, cell.idx);
+
+      // Dateinamen: <base>_<laufnr>_front.ext usw.
+      if(es.front && F){
         F.file(`${es.base}_${n}_front.${ext}`, await canvasToBlobAsync(fExp, mime, q));
       }
-      if(es.back && bExp){
+      if(es.back && B){
         B.file(`${es.base}_${n}_back.${ext}`, await canvasToBlobAsync(bExp, mime, q));
       }
-      // Pair: only if both sides exist
-      if(es.pair && fExp && bExp){
-        const turns = getPairTurnsForIdx(idx);
-        let rf = rotateCanvasTurns(fExp, turns);
-        let rb = rotateCanvasTurns(bExp, turns);
+      if(es.pair && P){
+        const frontIdx = cell.idx;
+
+        const turns = getPairTurnsForIdx(frontIdx);
+        const rf = rotateCanvasTurns(fExp, turns);
+        const rb = rotateCanvasTurns(bExp, turns);
+
         const ms = maybeMatchObjectSizeForPair(rf, rb);
-        rf = ms.front;
-        rb = ms.back;
-        const ov = getPairLayoutOverrideForIdx(idx);
-        const mode = ov ? ov : (getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H");
-        const pairCanvas = buildPairCanvas(rf, rb, mode);
-        P.file(`${es.base}_${n}_pair.${ext}`, await canvasToBlobAsync(pairCanvas, mime, q));
+        const rf2 = ms.front;
+        const rb2 = ms.back;
+
+        // ✅ wie im Preview: Override hat Vorrang, sonst Auto (oder H)
+        const ov = getPairLayoutOverrideForIdx(frontIdx);
+        const mode = ov ? ov : (getGlobalAutoLayout() ? pickAutoPairLayout(rf2, rb2) : "H");
+
+        const pair = buildPairCanvas(rf2, rb2, mode);
+        P.file(`${es.base}_${n}_pair.${ext}`, await canvasToBlobAsync(pair, mime, q));
       }
+
       exported++;
       if(exported % 5 === 0) setStatus(`Export… ${exported}/${activeCells.length}…`);
     }
+
     const outBlob = await zip.generateAsync({type:"blob"});
     downloadBlob(outBlob, `${es.base}.zip`);
-    setStatus(`Fertig. Exportiert: ${exported} Paare.`);
+    setStatus(`Fertig. Exportiert: ${exported} Zellen (deaktiviert: ${S.disabledCells.size}).`);
     return;
+  } catch(err){
+    console.error(err);
+    alert("Export fehlgeschlagen: " + (err && err.message ? err.message : err));
+    setStatus("Export-Fehler.");
   }
 
-  if(!S.work.front || !S.work.back) return alert("Front & Back müssen bereit sein (entzerrt oder raw).");
-  buildCells();
-  if(!S.cells.length) return alert("Grid ergibt keine Zellen.");
-
-  const es = getExportSettings();
-  if(!es.front && !es.back && !es.pair){
-    alert("Bitte mindestens Front, Back oder Pair anhaken.");
-    return;
-  }
-
-  const fmt = String($("fmt").value || "jpg").toLowerCase();
-  const q   = parseInt($("jpgq").value,10)/100;
-  const { mime, ext } = exportMimeAndExt(fmt);
-
-  // Nummerierung nur über die tatsächlich exportierten (aktive) Zellen
-  const activeCells = S.cells.filter(c => !S.disabledCells.has(c.idx));
-  if(activeCells.length === 0){
-    alert("Keine aktiven Zellen zum Export (alles deaktiviert).");
-    return;
-  }
-
-  const numWidth = Math.max(3, String(activeCells.length).length); // mind. 3-stellig
-
-  const zip = new JSZip();
-  const baseFolder = zip.folder(es.base);
-
-  // optional: Unterordner nur wenn gebraucht
-  const F = es.front ? baseFolder.folder("front") : null;
-  const B = es.back  ? baseFolder.folder("back")  : null;
-  const P = es.pair  ? baseFolder.folder("pairs") : null;
-
-  setStatus("Export läuft…");
-
-  let exported = 0;
-  let seq = 0;
-
-for(const cell of activeCells){
-  seq++;
-  const n = padN(seq, numWidth);
-
-  const f0 = cropCanvas(S.work.front, cell);
-
-  const backIdx = mapBackIdx(cell.idx);     // <-- EINMAL hier
-  const cellB = S.cells[backIdx - 1];
-  const b0 = cropCanvas(S.work.back, cellB);
-
-  let f, b;
-
-  const mf = S.manualCrop.front[cell.idx];
-  const mb = S.manualCrop.back[backIdx];    // <-- hier nur verwenden
-
-  if(mf) f = cropRect01(f0, mf);
-  else   f = tightOrFull(f0, "front");
-
-  if(mb) b = cropRect01(b0, mb);
-  else   b = tightOrFull(b0, "back");
-
-  if(!f || f.width < 10 || f.height < 10) f = f0;
-  if(!b || b.width < 10 || b.height < 10) b = b0;
-
-  // Option: Hintergrund zu reinweiß glätten (global, aber pro Bild override möglich)
-  const fExp = maybeWhiten(f, cell.idx);
-  const bExp = maybeWhiten(b, cell.idx);
-
-
-    // Dateinamen: <base>_<laufnr>_front.ext usw.
-    if(es.front){
-      F.file(`${es.base}_${n}_front.${ext}`, await canvasToBlobAsync(fExp, mime, q));
-    }
-    if(es.back){
-      B.file(`${es.base}_${n}_back.${ext}`, await canvasToBlobAsync(bExp, mime, q));
-    }
-    if(es.pair){
-  const frontIdx = cell.idx;
-
-  const turns = getPairTurnsForIdx(frontIdx);
-  const rf = rotateCanvasTurns(fExp, turns);
-  const rb = rotateCanvasTurns(bExp, turns);
-
-  const ms = maybeMatchObjectSizeForPair(rf, rb);
-  const rf2 = ms.front;
-  const rb2 = ms.back;
-
-  // ✅ wie im Preview: Override hat Vorrang, sonst Auto (oder H)
-  const ov = getPairLayoutOverrideForIdx(frontIdx);
-  const mode = ov ? ov : (getGlobalAutoLayout() ? pickAutoPairLayout(rf2, rb2) : "H");
-
-  const pair = buildPairCanvas(rf2, rb2, mode);
-  P.file(`${es.base}_${n}_pair.${ext}`, await canvasToBlobAsync(pair, mime, q));
-}
-
-    exported++;
-    if(exported % 5 === 0) setStatus(`Export… ${exported}/${activeCells.length}…`);
-  }
-
-  const outBlob = await zip.generateAsync({type:"blob"});
-  downloadBlob(outBlob, `${es.base}.zip`);
-  setStatus(`Fertig. Exportiert: ${exported} Zellen (deaktiviert: ${S.disabledCells.size}).`);
-});
+  });
 
 
 
 /* Startstatus */
 setStatus("OpenCV.js lädt…");
+
+// start periodic autosave every 10 seconds
+setInterval(() => {
+  try{ saveBackup(); }catch(err){}
+}, 10000);
 </script>
 </body>
 </html>
