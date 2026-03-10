@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-title" content="ButtonGridTool">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ButtonGridTool-Wizard</title>
+  <title>ButtonGridTool</title>
   <style>
     :root { --pad: 12px; --gap: 10px; --b:#2b6cff; }
     * { box-sizing: border-box; }
@@ -301,18 +301,16 @@
 
     <div class="split">
       <div>
-        <div class="row" style="justify-content:space-between; align-items:center; margin:0 0 6px 0;">
-          <p class="small" style="margin:0;"><b>Front</b></p>
-          <button id="togFront" type="button" class="" style="padding:6px 10px;">▾</button>
+        <div class="row previewToggle">
+          <button id="togFront" type="button" style="padding:6px 10px;">▾</button>
         </div>
         <div id="wrapFront">
           <canvas id="knobFront" width="900" height="450"></canvas>
         </div>
       </div>
       <div>
-        <div class="row" style="justify-content:space-between; align-items:center; margin:0 0 6px 0;">
-          <p class="small" style="margin:0;"><b>Back</b></p>
-          <button id="togBack" type="button" class="" style="padding:6px 10px;">▾</button>
+        <div class="row previewToggle">
+          <button id="togBack" type="button" style="padding:6px 10px;">▾</button>
         </div>
         <div id="wrapBack">
           <canvas id="knobBack" width="900" height="450"></canvas>
@@ -321,9 +319,8 @@
     </div>
 
     <div style="margin-top:10px;">
-      <div class="row" style="justify-content:space-between; align-items:center; margin:0 0 6px 0;">
-        <p class="small" id="pairLabel" style="margin:0;"><b>Pair</b> (Front+Back)</p>
-        <button id="togPair" type="button" class="" style="padding:6px 10px;">▾</button>
+      <div class="row previewToggle">
+        <button id="togPair" type="button" style="padding:6px 10px;">▾</button>
       </div>
       <div id="wrapPair">
         <canvas id="knobPair" width="1200" height="450"></canvas>
@@ -3178,7 +3175,8 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
 
   // Pair: gecroppt
   const doPairs = $("pairs").checked;
-  $("pairLabel").style.display = doPairs ? "block" : "none";
+  const lbl = $("pairLabel");
+  if(lbl) lbl.style.display = doPairs ? "block" : "none";
   $("knobPair").style.display  = doPairs ? "block" : "none";
   if(doPairs){
     const turns = getPairTurnsForIdx(idx);
