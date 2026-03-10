@@ -2093,12 +2093,11 @@ if($("singleFiles")){
     S.selectedIndices = [];
     const gallery = $("singleGallery");
     if(gallery) gallery.innerHTML = "";
+    // For each file, create a div and generate a small thumbnail asynchronously
     files.forEach((file, i) => {
-      const url = URL.createObjectURL(file);
       const div = document.createElement("div");
       div.style.position = "relative";
       const img = document.createElement("img");
-      img.src = url;
       img.style.width = "100%";
       img.style.borderRadius = "8px";
       const lab = document.createElement("div");
@@ -2113,7 +2112,26 @@ if($("singleFiles")){
       div.appendChild(lab);
       div.addEventListener("click", () => toggleSingle(i));
       if(gallery) gallery.appendChild(div);
-      S.singleImages.push({ file, url, role: null, label: lab });
+      // Initialize the single image entry
+      S.singleImages.push({ file, thumbUrl: null, role: null, label: lab });
+      // Generate a thumbnail (max 400px) asynchronously. If it fails, fall back to objectURL
+      loadPreviewCanvasFromFile(file, 400).then(cnv => {
+        try{
+          const thumb = cnv.toDataURL("image/jpeg", 0.8);
+          img.src = thumb;
+          S.singleImages[i].thumbUrl = thumb;
+        }catch(err){
+          console.warn("Thumbnail toDataURL failed", err);
+          const url = URL.createObjectURL(file);
+          img.src = url;
+          S.singleImages[i].thumbUrl = url;
+        }
+      }).catch(err => {
+        console.warn("Thumbnail generation failed", err);
+        const url = URL.createObjectURL(file);
+        img.src = url;
+        S.singleImages[i].thumbUrl = url;
+      });
     });
     // Show the panel as soon as images are selected
     const panel = $("singlePanel");
