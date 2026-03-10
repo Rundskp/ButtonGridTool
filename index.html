@@ -157,8 +157,6 @@
     <!-- Shorten the single mode button label to keep header in one row -->
     <button id="btnSingleMode">Single</button>
     <input id="singleFiles" type="file" accept="image/*" multiple hidden />
-    <!-- Restore from backup -->
-    <button id="btnRestore" title="Backup wiederherstellen">🔄</button>
   </div>
 </header>
 
@@ -2272,11 +2270,6 @@ if($("btnAutoPair")){
 }
 
 // Restore backup when the restore button is clicked
-if($("btnRestore")){
-  $("btnRestore").addEventListener("click", () => {
-    restoreBackup();
-  });
-}
 
 // Apply single mode selections to cells and enable preview/export
 if($("btnSingleApply")){
@@ -2428,12 +2421,15 @@ async function displaySinglePreview(idx){
     if(bCrop && bCrop.__dbg && backCanvas) backCanvas.__dbg = bCrop.__dbg;
   }catch(e){}
 
-  // Now redraw front/back with the updated debug overlay
+  // Now redraw front/back with the updated debug overlay. Apply background whitening to the
+  // uncropped preview canvases so that the background can be removed without touching the object.
   if(frontCanvas){
-    drawFitTo($("knobFront"), frontCanvas, "front");
+    const fcExp = maybeWhiten(frontCanvas, idx);
+    drawFitTo($("knobFront"), fcExp, "front");
   }
   if(backCanvas){
-    drawFitTo($("knobBack"), backCanvas, "back");
+    const bcExp = maybeWhiten(backCanvas, idx);
+    drawFitTo($("knobBack"), bcExp, "back");
   } else {
     const cb = $("knobBack");
     if(cb){
@@ -2787,7 +2783,17 @@ function setCollapsed(which, collapsed){
   S.ui[m.key] = !!collapsed;
   const w = $(m.wrap);
   const b = $(m.btn);
-  if(w) w.style.display = collapsed ? "none" : "block";
+  // When collapsing a preview, hide only the canvas (so the toggle button remains visible).
+  if(w){
+    // find the canvas inside the wrapper
+    const canvas = w.querySelector("canvas");
+    if(canvas){
+      canvas.style.display = collapsed ? "none" : "block";
+    }
+    // ensure the wrapper itself remains visible so the toggle button stays in place
+    w.style.display = "block";
+  }
+  // Update arrow direction on the toggle button
   if(b) b.textContent = collapsed ? "▸" : "▾";
 }
 
@@ -3068,7 +3074,7 @@ function updatePairLayoutLabel(idx){
   const i = idx || PREVIEW.idx || 1;
   const cur = getPairLayoutOverrideForIdx(i);
   if(cur==="H"){ b.textContent = "↔ Neben"; }
-  else if(cur==="V"){ b.textContent = "↕ Oben/Unten"; }
+  else if(cur==="V"){ b.textContent = "↔ Oben/Unten"; }
   else { b.textContent = "↔ Auto"; }
 }
 function cyclePairLayoutOverride(idx){
@@ -3375,8 +3381,12 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
   const bExp = maybeWhiten(b, idx);
 
   // Front/Back: volle Zelle + Overlay (wenn aktiv)
-  drawFitTo($("knobFront"), f0, "front");
-  drawFitTo($("knobBack"),  b0, "back");
+  // Apply background whitening to the full cell when requested. This uses the same detection logic
+  // as for the cropped images, ensuring that only the background becomes white.
+  const f0Exp = maybeWhiten(f0, idx);
+  const b0Exp = maybeWhiten(b0, backIdx);
+  drawFitTo($("knobFront"), f0Exp, "front");
+  drawFitTo($("knobBack"),  b0Exp, "back");
 
   // Pair: gecroppt
   const doPairs = $("pairs").checked;
@@ -3994,10 +4004,6 @@ $("btnExport").addEventListener("click", async ()=>{
 /* Startstatus */
 setStatus("OpenCV.js lädt…");
 
-// start periodic autosave every 10 seconds
-setInterval(() => {
-  try{ saveBackup(); }catch(err){}
-}, 10000);
 </script>
 </body>
 </html>
