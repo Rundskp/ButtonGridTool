@@ -2123,8 +2123,9 @@ if($("singleFiles")){
     S.selectedIndices = [];
     const gallery = $("singleGallery");
     if(gallery) gallery.innerHTML = "";
-    // For each file, create a div and show a scaled thumbnail
-    await Promise.all(files.map(async (file, i) => {
+    // Sequentially process each file to preserve display order and index mapping
+    for(let i = 0; i < files.length; i++){
+      const file = files[i];
       const div = document.createElement("div");
       div.style.position = "relative";
       const img = document.createElement("img");
@@ -2140,15 +2141,15 @@ if($("singleFiles")){
       lab.style.padding = "2px 4px";
       div.appendChild(img);
       div.appendChild(lab);
+      // Capture the current index for the click handler
       div.addEventListener("click", () => toggleSingle(i));
       if(gallery) gallery.appendChild(div);
+      // Generate gallery thumbnail
       try{
-        // create a small thumbnail for gallery (max 400px)
         const thumb = await createThumbnail(file, 400);
         if(thumb){
           img.src = thumb;
         } else {
-          // Fallback: use object URL as thumbnail
           const url = URL.createObjectURL(file);
           img.src = url;
         }
@@ -2156,9 +2157,9 @@ if($("singleFiles")){
         const url = URL.createObjectURL(file);
         img.src = url;
       }
-      // Store file; preview DataURL will be generated later on demand
-      S.singleImages.push({ file, role: null, label: lab });
-    }));
+      // Assign the image entry at the correct index
+      S.singleImages[i] = { file, role: null, label: lab };
+    }
     // Show the panel as soon as images are selected
     const panel = $("singlePanel");
     if(panel){
