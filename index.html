@@ -2143,6 +2143,7 @@ if($("singleFiles")){
       div.addEventListener("click", () => toggleSingle(i));
       if(gallery) gallery.appendChild(div);
       try{
+        // create a small thumbnail for gallery (max 400px)
         const thumb = await createThumbnail(file, 400);
         if(thumb){
           img.src = thumb;
@@ -2155,7 +2156,7 @@ if($("singleFiles")){
         const url = URL.createObjectURL(file);
         img.src = url;
       }
-      // Store file for full-resolution processing, thumbnail will be generated on the fly
+      // Store file; preview DataURL will be generated later on demand
       S.singleImages.push({ file, role: null, label: lab });
     }));
     // Show the panel as soon as images are selected
@@ -2248,7 +2249,7 @@ if($("btnAutoPair")){
 
 // Apply single mode selections to cells and enable preview/export
 if($("btnSingleApply")){
-  $("btnSingleApply").addEventListener("click", () => {
+  $("btnSingleApply").addEventListener("click", async () => {
     const fronts = S.singleImages.filter(x => x.role === "front");
     const backs  = S.singleImages.filter(x => x.role === "back");
     S.cells = [];
@@ -2256,11 +2257,25 @@ if($("btnSingleApply")){
     for(let i = 0; i < count; i++){
       const f = fronts[i];
       const b = backs[i];
+      let fPrev = null;
+      let bPrev = null;
+      // Generate preview DataURLs on demand for selected front/back files
+      if(f && f.file){
+        try{
+          fPrev = await createThumbnail(f.file, 1200);
+        }catch(err){ fPrev = null; }
+      }
+      if(b && b.file){
+        try{
+          bPrev = await createThumbnail(b.file, 1200);
+        }catch(err){ bPrev = null; }
+      }
       S.cells.push({
         idx: i + 1,
-        // Store the original File objects instead of data URLs
         singleFrontFile: f ? f.file : null,
-        singleBackFile: b ? b.file : null
+        singleBackFile: b ? b.file : null,
+        singleFrontPreview: fPrev,
+        singleBackPreview: bPrev
       });
     }
     S.singleMode = true;
@@ -2319,10 +2334,16 @@ async function displaySinglePreview(idx){
   let frontCanvas = null;
   let backCanvas  = null;
   try{
-    if(cell.singleFrontFile){
+    // Prefer to use the stored preview DataURL to avoid decoding full resolution
+    if(cell.singleFrontPreview){
+      frontCanvas = await loadCanvasFromDataURL(cell.singleFrontPreview);
+    } else if(cell.singleFrontFile){
+      // fallback: decode the file and scale down (heavy)
       frontCanvas = await loadPreviewCanvasFromFile(cell.singleFrontFile, 2000);
     }
-    if(cell.singleBackFile){
+    if(cell.singleBackPreview){
+      backCanvas  = await loadCanvasFromDataURL(cell.singleBackPreview);
+    } else if(cell.singleBackFile){
       backCanvas  = await loadPreviewCanvasFromFile(cell.singleBackFile, 2000);
     }
   }catch(err){
