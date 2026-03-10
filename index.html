@@ -1139,6 +1139,30 @@ async function loadImageFileToCanvas(file){
   }
 }
 
+// Load a preview-sized canvas from a File, scaling down large images to a
+// maximum dimension using createImageBitmap when available. This reduces
+// memory usage for previewing many high-resolution photos. Falls back to
+// full decode and scaleCanvas if createImageBitmap is not available.
+async function loadPreviewCanvasFromFile(file, maxDim = 2000){
+  if(!file) return null;
+  // Use createImageBitmap with resize options when supported
+  if(window.createImageBitmap){
+    try{
+      const bmp = await createImageBitmap(file, { resizeWidth: maxDim, resizeHeight: maxDim, resizeQuality: 'high' });
+      const c = document.createElement('canvas');
+      c.width  = bmp.width;
+      c.height = bmp.height;
+      c.getContext('2d').drawImage(bmp, 0, 0);
+      return c;
+    }catch(err){
+      console.warn('createImageBitmap resize failed', err);
+    }
+  }
+  // Fallback: load full resolution then scale down
+  const full = await loadImageFileToCanvas(file);
+  return scaleCanvas(full, maxDim);
+}
+
 // Scale down a canvas to a maximum dimension (width or height)
 // to reduce memory usage during preview. The full-resolution data
 // remains available via DataURL for export. If the canvas is
@@ -2192,8 +2216,9 @@ if($("btnSingleApply")){
       const b = backs[i];
       S.cells.push({
         idx: i + 1,
-        singleFront: f ? f.url : null,
-        singleBack: b ? b.url : null
+        // Store the original File objects instead of data URLs
+        singleFrontFile: f ? f.file : null,
+        singleBackFile: b ? b.file : null
       });
     }
     S.singleMode = true;
@@ -2246,19 +2271,21 @@ async function displaySinglePreview(idx){
   if(dh) dh.style.display = "none";
   PREVIEW.idx = idx;
   $("idx").value = idx;
-  // load full-resolution front/back
-  let frontCanvas = cell.singleFront ? await loadCanvasFromDataURL(cell.singleFront) : null;
-  let backCanvas  = cell.singleBack ? await loadCanvasFromDataURL(cell.singleBack) : null;
-  // scale canvases down for preview (full resolution is only used for export)
-  // This reduces memory and processing when handling large photos.
+  // load preview-sized front/back. Use the file objects stored in the cell and
+  // scale down large images to reduce memory usage. Only the full
+  // resolution will be loaded later during export.
+  let frontCanvas = null;
+  let backCanvas  = null;
   try{
-    if(frontCanvas){
-      frontCanvas = scaleCanvas(frontCanvas, 2000);
+    if(cell.singleFrontFile){
+      frontCanvas = await loadPreviewCanvasFromFile(cell.singleFrontFile, 2000);
     }
-    if(backCanvas){
-      backCanvas = scaleCanvas(backCanvas, 2000);
+    if(cell.singleBackFile){
+      backCanvas  = await loadPreviewCanvasFromFile(cell.singleBackFile, 2000);
     }
-  }catch(e){ console.warn("scaleCanvas failed", e); }
+  }catch(err){
+    console.warn("Error loading preview canvases", err);
+  }
   // store uncropped canvases for redraw and overlay
   PREVIEW.src.front = frontCanvas;
   PREVIEW.src.back  = backCanvas;
@@ -3130,8 +3157,8 @@ function previewBackIdx(){
 
 
 function runPreview(requestedIdx, allowDisabled=true){
-  // Single mode detection: if cells have 'singleFront', bypass grid logic entirely
-  if(S.cells && S.cells.length && S.cells[0] && Object.prototype.hasOwnProperty.call(S.cells[0], "singleFront")){
+  // Single mode detection: if cells have 'singleFrontFile', bypass grid logic entirely
+  if(S.cells && S.cells.length && S.cells[0] && Object.prototype.hasOwnProperty.call(S.cells[0], "singleFrontFile")){
     let idx = clamp(parseInt(requestedIdx || "1", 10), 1, S.cells.length);
     $("idx").value = idx;
     PREVIEW.idx = idx;
@@ -3235,7 +3262,7 @@ function nextEnabledIdx(fromIdx, dir){
   const max = S.cells.length;
   let i = clamp(fromIdx, 1, max);
   // In single mode all cells are active regardless of disabledCells
-  const isSingle = S.cells && S.cells.length && S.cells[0] && Object.prototype.hasOwnProperty.call(S.cells[0], "singleFront");
+  const isSingle = S.cells && S.cells.length && S.cells[0] && Object.prototype.hasOwnProperty.call(S.cells[0], "singleFrontFile");
   while(true){
     i += dir;
     // stop at ends
@@ -3579,8 +3606,8 @@ function canvasToBlobAsync(canvas, mime, quality){
 }
 
 $("btnExport").addEventListener("click", async ()=>{
-  // If we are in single mode (cells contain singleFront), export directly from selected images
-  const isSingle = S.cells && S.cells.length && S.cells[0] && Object.prototype.hasOwnProperty.call(S.cells[0], "singleFront");
+  // If we are in single mode (cells contain singleFrontFile), export directly from selected images
+  const isSingle = S.cells && S.cells.length && S.cells[0] && Object.prototype.hasOwnProperty.call(S.cells[0], "singleFrontFile");
   if(isSingle){
     const es = getExportSettings();
     if(!es.front && !es.back && !es.pair){
@@ -3607,14 +3634,18 @@ $("btnExport").addEventListener("click", async ()=>{
     for(const cell of activeCells){
       seq++;
       const n = padN(seq, numWidth);
-      // Load original images from their data URLs
+      // Load original images from their File objects. Use full resolution for export.
       let frontCanvas = null;
       let backCanvas  = null;
-      if(cell.singleFront){
-        frontCanvas = await loadCanvasFromDataURL(cell.singleFront);
-      }
-      if(cell.singleBack){
-        backCanvas = await loadCanvasFromDataURL(cell.singleBack);
+      try{
+        if(cell.singleFrontFile){
+          frontCanvas = await loadImageFileToCanvas(cell.singleFrontFile);
+        }
+        if(cell.singleBackFile){
+          backCanvas = await loadImageFileToCanvas(cell.singleBackFile);
+        }
+      }catch(err){
+        console.warn("Error loading full-resolution images", err);
       }
       // Apply auto crop and manual crop just like the grid workflow
       let fCrop = frontCanvas;
