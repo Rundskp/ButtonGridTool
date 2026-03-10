@@ -263,40 +263,38 @@
       <span id="prevState" class="badge warn">wartet</span>
     </div>
 
+    <!-- Navigation row: placed above the images so no scrolling is needed -->
     <div class="row">
       <button id="btnPrev" disabled>◀︎</button>
-
       <span class="pill"><b>Knopf #</b>
         <!-- type=text verhindert Browser-"ArrowUp/Down" Auto-Step (sonst doppelte Sprünge) -->
         <input id="idx" type="text" inputmode="numeric" pattern="[0-9]*" value="1" style="width:90px;">
       </span>
-
       <button id="btnNext" disabled>▶︎</button>
-      
       <button id="btnPreview" class="primary" disabled>Preview</button>
       <button id="btnResetCrop" disabled>Reset Crop</button>
       <span id="disabledHint" class="badge warn" style="display:none;">deaktiviert</span>
+    </div>
+    <!-- Options row: pairs, mapping, background removal and pair layout -->
+    <div class="row">
       <span class="pill"><b>Pairs</b>
         <input id="pairs" type="checkbox" checked />
       </span>
       <span class="pill"><b>Back Mapping</b>
-  <select id="backMapStep4">
-    <option value="none" selected>Normal</option>
-    <option value="mx">Spiegel horizontal (L↔R)</option>
-    <option value="my">Spiegel vertikal (O↔U)</option>
-    <option value="mxy">180° (beides)</option>
-  </select>
-</span>
-
+        <select id="backMapStep4">
+          <option value="none" selected>Normal</option>
+          <option value="mx">Spiegel horizontal (L↔R)</option>
+          <option value="my">Spiegel vertikal (O↔U)</option>
+          <option value="mxy">180° (beides)</option>
+        </select>
+      </span>
       <span class="pill"><b>Weiß</b>
         <label style="display:inline-flex; gap:6px; align-items:center;">
           <input type="checkbox" id="whiteBg"> BG entfernen
         </label>
       </span>
-
       <button id="btnPairRotate" disabled title="Pair-Layout drehen (Front+Back je 90°)">⟳ Pair</button>
       <button id="btnPairLayout" disabled title="Pair-Layout für dieses Bild: Auto ↔ ↕">↔ Auto</button>
-
     </div>
 
     <div class="split">
@@ -1139,26 +1137,12 @@ async function loadImageFileToCanvas(file){
   }
 }
 
-// Load a preview-sized canvas from a File, scaling down large images to a
-// maximum dimension using createImageBitmap when available. This reduces
-// memory usage for previewing many high-resolution photos. Falls back to
-// full decode and scaleCanvas if createImageBitmap is not available.
+// Load a preview-sized canvas from a File. The image is decoded at full
+// resolution (including HEIC conversion) and then scaled down to a maximum
+// dimension. This preserves the aspect ratio and avoids distortion.
 async function loadPreviewCanvasFromFile(file, maxDim = 2000){
   if(!file) return null;
-  // Use createImageBitmap with resize options when supported
-  if(window.createImageBitmap){
-    try{
-      const bmp = await createImageBitmap(file, { resizeWidth: maxDim, resizeHeight: maxDim, resizeQuality: 'high' });
-      const c = document.createElement('canvas');
-      c.width  = bmp.width;
-      c.height = bmp.height;
-      c.getContext('2d').drawImage(bmp, 0, 0);
-      return c;
-    }catch(err){
-      console.warn('createImageBitmap resize failed', err);
-    }
-  }
-  // Fallback: load full resolution then scale down
+  // Always decode the full image (handles HEIC/HEIF) and then scale
   const full = await loadImageFileToCanvas(file);
   return scaleCanvas(full, maxDim);
 }
