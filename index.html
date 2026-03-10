@@ -121,6 +121,28 @@
       background:#fff; border-radius:12px; border:1px solid #ddd;
       display:block;
     }
+
+    /* Step 4 preview: make preview wrappers relative so that toggle buttons can be positioned inside */
+    .previewWrap {
+      position: relative;
+    }
+
+    /* Buttons to collapse/expand preview panes (Front/Back/Pair) */
+    .previewToggleBtn {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 2;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      background: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+      line-height: 1;
+    }
+    .previewToggleBtn:hover {
+      background: rgba(255, 255, 255, 1);
+    }
   </style>
 </head>
 <body>
@@ -296,28 +318,25 @@
 
     <div class="split">
       <div>
-        <div class="row previewToggle">
-          <button id="togFront" type="button" style="padding:6px 10px;">▾</button>
-        </div>
-        <div id="wrapFront">
+        <!-- Integrated toggle button inside the preview container for Front -->
+        <div id="wrapFront" class="previewWrap">
+          <button id="togFront" type="button" class="previewToggleBtn">▾</button>
           <canvas id="knobFront" width="900" height="450"></canvas>
         </div>
       </div>
       <div>
-        <div class="row previewToggle">
-          <button id="togBack" type="button" style="padding:6px 10px;">▾</button>
-        </div>
-        <div id="wrapBack">
+        <!-- Integrated toggle button inside the preview container for Back -->
+        <div id="wrapBack" class="previewWrap">
+          <button id="togBack" type="button" class="previewToggleBtn">▾</button>
           <canvas id="knobBack" width="900" height="450"></canvas>
         </div>
       </div>
     </div>
 
     <div style="margin-top:10px;">
-      <div class="row previewToggle">
-        <button id="togPair" type="button" style="padding:6px 10px;">▾</button>
-      </div>
-      <div id="wrapPair">
+      <!-- Integrated toggle button inside the preview container for Pair -->
+      <div id="wrapPair" class="previewWrap">
+        <button id="togPair" type="button" class="previewToggleBtn">▾</button>
         <canvas id="knobPair" width="1200" height="450"></canvas>
       </div>
     </div>
@@ -2437,13 +2456,10 @@ async function displaySinglePreview(idx){
   updatePairRotateLabel(idx);
   updatePairLayoutLabel(idx);
 
-  // Scroll navigation row into view so that the arrow buttons remain visible
-  try{
-    const navEl = document.getElementById("btnPrev");
-    if(navEl){
-      navEl.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }catch(e){}
+  // Do not automatically scroll the page when showing a preview in single mode.
+  // Previously this function called navEl.scrollIntoView(), which could cause the page
+  // to jump unexpectedly on subsequent previews. The navigation row is now placed
+  // directly above the preview canvases, so there is no need to scroll here.
 }
 
 /* ----------------- Cells + preview + export ----------------- */
