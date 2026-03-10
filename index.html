@@ -2076,7 +2076,18 @@ if($("singleFiles")){
     });
     // Show the panel as soon as images are selected
     const panel = $("singlePanel");
-    if(panel) panel.style.display = files.length ? "block" : "none";
+    if(panel){
+      panel.style.display = files.length ? "block" : "none";
+      // scroll into view when images are selected
+      if(files.length){
+        // slight delay to allow DOM to update
+        setTimeout(() => {
+          try{
+            panel.scrollIntoView({ behavior: "smooth", block: "start" });
+          }catch(e){}
+        }, 50);
+      }
+    }
     updateSingleLabels();
   });
 }
@@ -2123,21 +2134,30 @@ function updateSingleLabels(){
 if($("btnAutoPair")){
   $("btnAutoPair").addEventListener("click", () => {
     if(!S.selectedIndices || S.selectedIndices.length < 2) return;
-    // sort indices ascending to ensure proper range
-    const sorted = [...S.selectedIndices].sort((a,b) => a - b);
-    const start = sorted[0];
-    const end   = sorted[sorted.length - 1];
-    if(end <= start) return;
+    // use the actual selection order: first click = start, last click = end
+    const start = S.selectedIndices[0];
+    const end   = S.selectedIndices[S.selectedIndices.length - 1];
+    if(start === end) return;
     // clear all roles and selected indices
     S.singleImages.forEach(img => { img.role = null; });
     S.selectedIndices = [];
     let assignFront = true;
-    for(let i = start; i <= end; i++){
-      const img = S.singleImages[i];
-      if(!img) continue;
-      img.role = assignFront ? "front" : "back";
-      S.selectedIndices.push(i);
-      assignFront = !assignFront;
+    if(start < end){
+      for(let i = start; i <= end; i++){
+        const img = S.singleImages[i];
+        if(!img) continue;
+        img.role = assignFront ? "front" : "back";
+        S.selectedIndices.push(i);
+        assignFront = !assignFront;
+      }
+    } else {
+      for(let i = start; i >= end; i--){
+        const img = S.singleImages[i];
+        if(!img) continue;
+        img.role = assignFront ? "front" : "back";
+        S.selectedIndices.push(i);
+        assignFront = !assignFront;
+      }
     }
     updateSingleLabels();
   });
@@ -2212,7 +2232,7 @@ async function displaySinglePreview(idx){
   // load full-resolution front/back
   const frontCanvas = cell.singleFront ? await loadCanvasFromDataURL(cell.singleFront) : null;
   const backCanvas  = cell.singleBack ? await loadCanvasFromDataURL(cell.singleBack) : null;
-  // store for redraw
+  // store uncropped canvases for redraw and overlay
   PREVIEW.src.front = frontCanvas;
   PREVIEW.src.back  = backCanvas;
   // reset pan/zoom
@@ -2242,12 +2262,29 @@ async function displaySinglePreview(idx){
       ctx.clearRect(0,0,cb.width,cb.height);
     }
   }
+  // prepare cropped canvases using the same pipeline as grid (tightOrFull + manual overrides)
+  let fCrop = frontCanvas;
+  let bCrop = backCanvas;
+  const mf = S.manualCrop.front && S.manualCrop.front[idx];
+  const mb = S.manualCrop.back && S.manualCrop.back[idx];
+  if(mf && frontCanvas){
+    fCrop = cropRect01(frontCanvas, mf);
+  } else if(frontCanvas){
+    fCrop = tightOrFull(frontCanvas, "front");
+  }
+  if(mb && backCanvas){
+    bCrop = cropRect01(backCanvas, mb);
+  } else if(backCanvas){
+    bCrop = tightOrFull(backCanvas, "back");
+  }
+  if(fCrop && (fCrop.width < 10 || fCrop.height < 10)) fCrop = frontCanvas;
+  if(bCrop && (bCrop.width < 10 || bCrop.height < 10)) bCrop = backCanvas;
   // pair preview
   const showPair = $("pairs") && $("pairs").checked;
-  if(showPair && frontCanvas && backCanvas){
+  if(showPair && fCrop && bCrop){
     const turns = getPairTurnsForIdx(idx);
-    const fExp = maybeWhiten(frontCanvas, idx);
-    const bExp = maybeWhiten(backCanvas,  idx);
+    const fExp = maybeWhiten(fCrop, idx);
+    const bExp = maybeWhiten(bCrop, idx);
     let rf = rotateCanvasTurns(fExp, turns);
     let rb = rotateCanvasTurns(bExp, turns);
     const ms = maybeMatchObjectSizeForPair(rf, rb);
@@ -3505,6 +3542,7 @@ $("btnExport").addEventListener("click", async ()=>{
     for(const cell of activeCells){
       seq++;
       const n = padN(seq, numWidth);
+      // Load original images from their data URLs
       let frontCanvas = null;
       let backCanvas  = null;
       if(cell.singleFront){
@@ -3513,22 +3551,44 @@ $("btnExport").addEventListener("click", async ()=>{
       if(cell.singleBack){
         backCanvas = await loadCanvasFromDataURL(cell.singleBack);
       }
-      const fExp = frontCanvas ? maybeWhiten(frontCanvas, cell.idx) : null;
-      const bExp = backCanvas  ? maybeWhiten(backCanvas,  cell.idx) : null;
+      // Apply auto crop and manual crop just like the grid workflow
+      let fCrop = frontCanvas;
+      let bCrop = backCanvas;
+      const idx = cell.idx;
+      const mf = S.manualCrop.front && S.manualCrop.front[idx];
+      const mb = S.manualCrop.back  && S.manualCrop.back[idx];
+      if(mf && frontCanvas){
+        fCrop = cropRect01(frontCanvas, mf);
+      } else if(frontCanvas){
+        fCrop = tightOrFull(frontCanvas, "front");
+      }
+      if(mb && backCanvas){
+        bCrop = cropRect01(backCanvas, mb);
+      } else if(backCanvas){
+        bCrop = tightOrFull(backCanvas, "back");
+      }
+      // Fallback to original if crop is too small or missing
+      if(fCrop && (fCrop.width < 10 || fCrop.height < 10)) fCrop = frontCanvas;
+      if(bCrop && (bCrop.width < 10 || bCrop.height < 10)) bCrop = backCanvas;
+      // Whiten backgrounds (if enabled)
+      const fExp = fCrop ? maybeWhiten(fCrop, idx) : null;
+      const bExp = bCrop ? maybeWhiten(bCrop, idx) : null;
+      // Write individual files
       if(es.front && fExp){
         F.file(`${es.base}_${n}_front.${ext}`, await canvasToBlobAsync(fExp, mime, q));
       }
       if(es.back && bExp){
         B.file(`${es.base}_${n}_back.${ext}`, await canvasToBlobAsync(bExp, mime, q));
       }
+      // Pair: only if both sides exist
       if(es.pair && fExp && bExp){
-        const turns = getPairTurnsForIdx(cell.idx);
+        const turns = getPairTurnsForIdx(idx);
         let rf = rotateCanvasTurns(fExp, turns);
         let rb = rotateCanvasTurns(bExp, turns);
         const ms = maybeMatchObjectSizeForPair(rf, rb);
         rf = ms.front;
         rb = ms.back;
-        const ov = getPairLayoutOverrideForIdx(cell.idx);
+        const ov = getPairLayoutOverrideForIdx(idx);
         const mode = ov ? ov : (getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H");
         const pairCanvas = buildPairCanvas(rf, rb, mode);
         P.file(`${es.base}_${n}_pair.${ext}`, await canvasToBlobAsync(pairCanvas, mime, q));
