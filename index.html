@@ -2344,20 +2344,7 @@ async function displaySinglePreview(idx){
       PREVIEW.g[k].pan = null;
     }
   }
-  // draw front/back (full view)
-  if(frontCanvas){
-    drawFitTo($("knobFront"), frontCanvas, "front");
-  }
-  if(backCanvas){
-    drawFitTo($("knobBack"), backCanvas, "back");
-  } else {
-    const cb = $("knobBack");
-    if(cb){
-      const ctx = cb.getContext("2d");
-      ctx.setTransform(1,0,0,1,0,0);
-      ctx.clearRect(0,0,cb.width,cb.height);
-    }
-  }
+  // we will draw front/back later after cropping & debug assignment
   // prepare cropped canvases using the same pipeline as grid (tightOrFull + manual overrides)
   let fCrop = frontCanvas;
   let bCrop = backCanvas;
@@ -2382,6 +2369,22 @@ async function displaySinglePreview(idx){
     if(fCrop && fCrop.__dbg && frontCanvas) frontCanvas.__dbg = fCrop.__dbg;
     if(bCrop && bCrop.__dbg && backCanvas) backCanvas.__dbg = bCrop.__dbg;
   }catch(e){}
+
+  // Now redraw front/back with the updated debug overlay
+  if(frontCanvas){
+    drawFitTo($("knobFront"), frontCanvas, "front");
+  }
+  if(backCanvas){
+    drawFitTo($("knobBack"), backCanvas, "back");
+  } else {
+    const cb = $("knobBack");
+    if(cb){
+      const ctx2 = cb.getContext("2d");
+      ctx2.setTransform(1,0,0,1,0,0);
+      ctx2.clearRect(0,0,cb.width,cb.height);
+    }
+  }
+
   // pair preview
   const showPair = $("pairs") && $("pairs").checked;
   if(showPair && fCrop && bCrop){
