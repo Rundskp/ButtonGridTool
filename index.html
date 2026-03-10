@@ -143,6 +143,15 @@
     .previewToggleBtn:hover {
       background: rgba(255, 255, 255, 1);
     }
+
+    /* Pair layout arrow icon within the layout button */
+    .pairIcon {
+      display: inline-block;
+      transition: transform 0.2s;
+    }
+    .pairIcon.vertical {
+      transform: rotate(90deg);
+    }
   </style>
 </head>
 <body>
@@ -287,13 +296,16 @@
 
     <!-- Options row: background removal and pair layout -->
     <div class="row">
-      <span class="pill"><b>Weiß</b>
+      <span class="pill"><b>HG</b>
         <label style="display:inline-flex; gap:6px; align-items:center;">
-          <input type="checkbox" id="whiteBg"> BG entfernen
+          <input type="checkbox" id="whiteBg"> weiß
         </label>
       </span>
       <button id="btnPairRotate" disabled title="Pair-Layout drehen (Front+Back je 90°)">⟳ Pair</button>
-      <button id="btnPairLayout" disabled title="Pair-Layout für dieses Bild: Auto ↔ ↕">↔ Auto</button>
+      <button id="btnPairLayout" disabled title="Pair-Layout für dieses Bild: Auto ↔ ↕">
+        <span id="pairArrow" class="pairIcon">↔</span>
+        <span id="pairLabelText">Auto</span>
+      </button>
     </div>
 
     <!-- Reset/Pairs row: pairs checkbox and reset crop (placed before navigation) -->
@@ -2447,11 +2459,18 @@ async function displaySinglePreview(idx){
     const bExp = maybeWhiten(bCrop, idx);
     let rf = rotateCanvasTurns(fExp, turns);
     let rb = rotateCanvasTurns(bExp, turns);
-    const ms = maybeMatchObjectSizeForPair(rf, rb);
-    rf = ms.front;
-    rb = ms.back;
+    // Determine the layout: override or auto (based on unscaled objects)
+    let mode;
     const ov = getPairLayoutOverrideForIdx(idx);
-    const mode = ov ? ov : (getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H");
+    if(ov){
+      mode = ov;
+    } else {
+      mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H";
+    }
+    // Match object sizes based on the chosen layout
+    const matched = matchObjectSizeForPairWithMode(rf, rb, mode);
+    rf = matched.front;
+    rb = matched.back;
     const pairCanvas = buildPairCanvas(rf, rb, mode);
     PREVIEW.src.pair = pairCanvas;
     drawFitTo($("knobPair"), pairCanvas, "pair");
@@ -3069,13 +3088,21 @@ function getPairLayoutOverrideForIdx(idx){
   return null; // Auto
 }
 function updatePairLayoutLabel(idx){
-  const b = $("btnPairLayout");
-  if(!b) return;
+  const arrow = $("pairArrow");
+  const lbl = $("pairLabelText");
+  if(!arrow || !lbl) return;
   const i = idx || PREVIEW.idx || 1;
   const cur = getPairLayoutOverrideForIdx(i);
-  if(cur==="H"){ b.textContent = "↔ Neben"; }
-  else if(cur==="V"){ b.textContent = "↔ Oben/Unten"; }
-  else { b.textContent = "↔ Auto"; }
+  if(cur === "H"){
+    arrow.classList.remove("vertical");
+    lbl.textContent = "Neben";
+  } else if(cur === "V"){
+    arrow.classList.add("vertical");
+    lbl.textContent = "Oben/Unten";
+  } else {
+    arrow.classList.remove("vertical");
+    lbl.textContent = "Auto";
+  }
 }
 function cyclePairLayoutOverride(idx){
   if(!S.previewOverrides) S.previewOverrides = { whiteBg:{}, pairTurns:{}, pairLayout:{} };
@@ -3215,6 +3242,53 @@ function maybeMatchObjectSizeForPair(frontCanvas, backCanvas){
     front: scaleCanvasToMatchLongEdge(frontCanvas, bf, target),
     back : scaleCanvasToMatchLongEdge(backCanvas,  bb, target)
   };
+}
+
+// Match object sizes based on the chosen pair layout.  When images are arranged side by side (horizontal),
+// the heights of the detected foregrounds are matched. When stacked vertically, the widths are matched.
+// This function scales the canvases so that the relevant edge of both objects has the same length.
+function matchObjectSizeForPairWithMode(frontCanvas, backCanvas, mode){
+  if(!getGlobalMatchSize()) return { front:frontCanvas, back:backCanvas };
+  const bf = detectForegroundBBox(frontCanvas);
+  const bb = detectForegroundBBox(backCanvas);
+  if(!bf || !bb) return { front:frontCanvas, back:backCanvas };
+  let sF = 1, sB = 1;
+  if(mode === "H"){
+    const hF = bf.h;
+    const hB = bb.h;
+    const target = Math.max(hF, hB);
+    if(hF > 0) sF = target / hF;
+    if(hB > 0) sB = target / hB;
+  } else if(mode === "V"){
+    const wF = bf.w;
+    const wB = bb.w;
+    const target = Math.max(wF, wB);
+    if(wF > 0) sF = target / wF;
+    if(wB > 0) sB = target / wB;
+  }
+  // clamp scale factors to reasonable range to avoid extreme resizing
+  const clampScale = (v) => clamp(v, 0.6, 1.8);
+  sF = clampScale(sF);
+  sB = clampScale(sB);
+  // if scale is close to 1, leave unchanged
+  if(Math.abs(sF - 1) < 0.03) sF = 1;
+  if(Math.abs(sB - 1) < 0.03) sB = 1;
+  // If no scaling needed, return originals
+  if(sF === 1 && sB === 1) return { front:frontCanvas, back:backCanvas };
+  // Create scaled canvases
+  function scaleCanvas(src, s){
+    const out = document.createElement("canvas");
+    out.width = Math.max(1, Math.round(src.width * s));
+    out.height = Math.max(1, Math.round(src.height * s));
+    const ctx = out.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0,0,out.width,out.height);
+    ctx.drawImage(src, 0,0, out.width, out.height);
+    return out;
+  }
+  const fOut = scaleCanvas(frontCanvas, sF);
+  const bOut = scaleCanvas(backCanvas, sB);
+  return { front:fOut, back:bOut };
 }
 
 // ===== Auto-save and restore =====
@@ -3395,16 +3469,22 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
   $("knobPair").style.display  = doPairs ? "block" : "none";
   if(doPairs){
     const turns = getPairTurnsForIdx(idx);
-    const rf = rotateCanvasTurns(fExp, turns);
-    const rb = rotateCanvasTurns(bExp, turns);
-    const ms = maybeMatchObjectSizeForPair(rf, rb);
-    const rf2 = ms.front;
-    const rb2 = ms.back;
-    let mode = null;
+    // rotate cropped canvases before scaling and layout
+    let rf = rotateCanvasTurns(fExp, turns);
+    let rb = rotateCanvasTurns(bExp, turns);
+    // Determine pair layout (horizontal vs vertical) based on either override or auto selection
+    let mode;
     const ov = getPairLayoutOverrideForIdx(idx);
-    if(ov){ mode = ov; }
-    else { mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf2, rb2) : "H"; }
-    const pairC = buildPairCanvas(rf2, rb2, mode);
+    if(ov){
+      mode = ov;
+    } else {
+      mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H";
+    }
+    // Scale front/back so that the touching edge matches in length
+    const matched = matchObjectSizeForPairWithMode(rf, rb, mode);
+    rf = matched.front;
+    rb = matched.back;
+    const pairC = buildPairCanvas(rf, rb, mode);
     PREVIEW.src.pair = pairC;
     drawFitTo($("knobPair"), pairC, "pair");
   }
@@ -3866,11 +3946,18 @@ $("btnExport").addEventListener("click", async ()=>{
           const turns = getPairTurnsForIdx(idx);
           let rf = rotateCanvasTurns(fExp, turns);
           let rb = rotateCanvasTurns(bExp, turns);
-          const ms = maybeMatchObjectSizeForPair(rf, rb);
-          rf = ms.front;
-          rb = ms.back;
+          // Decide layout for this pair: override or auto
+          let mode;
           const ov = getPairLayoutOverrideForIdx(idx);
-          const mode = ov ? ov : (getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H");
+          if(ov){
+            mode = ov;
+          } else {
+            mode = getGlobalAutoLayout() ? pickAutoPairLayout(rf, rb) : "H";
+          }
+          // Match object sizes based on the chosen layout
+          const matched = matchObjectSizeForPairWithMode(rf, rb, mode);
+          rf = matched.front;
+          rb = matched.back;
           const pairCanvas = buildPairCanvas(rf, rb, mode);
           const blobP = await canvasToBlobAsync(pairCanvas, mime, q);
           P.file(`${es.base}_${n}_pair.${ext}`, blobP);
