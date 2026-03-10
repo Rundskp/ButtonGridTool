@@ -2186,14 +2186,9 @@ function toggleSingle(idx){
     const pos = S.selectedIndices.indexOf(idx);
     if(pos >= 0) S.selectedIndices.splice(pos, 1);
   } else {
-    // assign role: assign front if number of fronts <= number of backs, otherwise back
-    const frontCount = S.singleImages.filter(x => x.role === "front").length;
-    const backCount  = S.singleImages.filter(x => x.role === "back").length;
-    if(frontCount <= backCount){
-      item.role = "front";
-    } else {
-      item.role = "back";
-    }
+    // assign role based purely on selection order: even index → front, odd → back
+    const seq = S.selectedIndices.length;
+    item.role = (seq % 2 === 0) ? "front" : "back";
     S.selectedIndices.push(idx);
   }
   updateSingleLabels();
