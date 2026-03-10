@@ -2437,11 +2437,11 @@ async function displaySinglePreview(idx){
   updatePairRotateLabel(idx);
   updatePairLayoutLabel(idx);
 
-  // Scroll preview into view so that navigation doesn't require manual scrolling
+  // Scroll navigation row into view so that the arrow buttons remain visible
   try{
-    const wrap = document.getElementById("wrapFront");
-    if(wrap){
-      wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+    const navEl = document.getElementById("btnPrev");
+    if(navEl){
+      navEl.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }catch(e){}
 }
