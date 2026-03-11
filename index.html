@@ -370,7 +370,7 @@
           <input type="checkbox" id="expBack" checked> Back
         </label>
         <label style="display:inline-flex; gap:6px; align-items:center;">
-          <input type="checkbox" id="expPair"> Pair
+          <input type="checkbox" id="expPair" checked> Pair
         </label>
       </span>
 
@@ -417,8 +417,8 @@
       <span class="pill">
         <b>Dateiformat</b>
         <select id="fmt">
-          <option value="jpg" selected>JPG (kleiner)</option>
-          <option value="png">PNG (verlustfrei)</option>
+          <option value="jpg">JPG (kleiner)</option>
+          <option value="png" selected>PNG (verlustfrei)</option>
         </select>
       </span>
 
@@ -436,7 +436,7 @@
     <div class="row">
       <span class="pill">
         <b>Rand innerhalb jeder Zelle (Pixel)</b>
-        <input id="gridPad" type="number" value="15" min="0" max="300" step="1" style="width:90px;">
+        <input id="gridPad" type="number" value="0" min="0" max="300" step="1" style="width:90px;">
       </span>
     </div>
 
@@ -464,7 +464,7 @@
     <div class="row">
       <span class="pill">
         <b>Hintergrund weiß machen</b>
-        <input id="setWhiteBg" type="checkbox">
+        <input id="setWhiteBg" type="checkbox" checked>
       </span>
 
       <span class="pill">
@@ -492,7 +492,7 @@
 
       <span class="pill">
         <b>Sicherheitsrand um Objekt (Pixel)</b>
-        <input id="tightPad" type="number" value="12" min="0" max="200" step="1" style="width:90px;">
+        <input id="tightPad" type="number" value="30" min="0" max="200" step="1" style="width:90px;">
       </span>
 
       <span class="pill">
@@ -507,7 +507,7 @@
 
       <span class="pill">
         <b>Debug-Overlay anzeigen</b>
-        <input id="debugOverlay" type="checkbox">
+        <input id="debugOverlay" type="checkbox" checked>
       </span>
     </div>
 
@@ -532,17 +532,17 @@
     <!-- FRONT -->
     <p class="small"><b>Vorderseite – Objektrand erkennen</b></p>
     <div class="row">
-      <span class="pill"><b>Oben – Empfindlichkeit</b><input id="fThrT" type="number" value="35" min="1" max="255" style="width:90px;"></span>
-      <span class="pill"><b>Oben – Mindestanteil</b><input id="fFillT" type="number" value="0.02" step="0.005" style="width:110px;"></span>
+      <span class="pill"><b>Oben – Empfindlichkeit</b><input id="fThrT" type="number" value="50" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Oben – Mindestanteil</b><input id="fFillT" type="number" value="0.145" step="0.005" style="width:110px;"></span>
 
-      <span class="pill"><b>Rechts – Empfindlichkeit</b><input id="fThrR" type="number" value="35" min="1" max="255" style="width:90px;"></span>
-      <span class="pill"><b>Rechts – Mindestanteil</b><input id="fFillR" type="number" value="0.02" step="0.005" style="width:110px;"></span>
+      <span class="pill"><b>Rechts – Empfindlichkeit</b><input id="fThrR" type="number" value="42" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Rechts – Mindestanteil</b><input id="fFillR" type="number" value="0.2" step="0.005" style="width:110px;"></span>
 
-      <span class="pill"><b>Unten – Empfindlichkeit</b><input id="fThrB" type="number" value="35" min="1" max="255" style="width:90px;"></span>
-      <span class="pill"><b>Unten – Mindestanteil</b><input id="fFillB" type="number" value="0.02" step="0.005" style="width:110px;"></span>
+      <span class="pill"><b>Unten – Empfindlichkeit</b><input id="fThrB" type="number" value="50" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Unten – Mindestanteil</b><input id="fFillB" type="number" value="0.15" step="0.005" style="width:110px;"></span>
 
-      <span class="pill"><b>Links – Empfindlichkeit</b><input id="fThrL" type="number" value="35" min="1" max="255" style="width:90px;"></span>
-      <span class="pill"><b>Links – Mindestanteil</b><input id="fFillL" type="number" value="0.02" step="0.005" style="width:110px;"></span>
+      <span class="pill"><b>Links – Empfindlichkeit</b><input id="fThrL" type="number" value="42" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Links – Mindestanteil</b><input id="fFillL" type="number" value="0.2" step="0.005" style="width:110px;"></span>
     </div>
 
     <div class="hr"></div>
@@ -550,17 +550,17 @@
     <!-- BACK -->
     <p class="small"><b>Rückseite – Objektrand erkennen (Schatten!)</b></p>
     <div class="row">
-      <span class="pill"><b>Oben – Empfindlichkeit</b><input id="bThrT" type="number" value="28" min="1" max="255" style="width:90px;"></span>
-      <span class="pill"><b>Oben – Mindestanteil</b><input id="bFillT" type="number" value="0.015" step="0.005" style="width:110px;"></span>
+      <span class="pill"><b>Oben – Empfindlichkeit</b><input id="bThrT" type="number" value="50" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Oben – Mindestanteil</b><input id="bFillT" type="number" value="0.145" step="0.005" style="width:110px;"></span>
 
-      <span class="pill"><b>Rechts – Empfindlichkeit</b><input id="bThrR" type="number" value="28" min="1" max="255" style="width:90px;"></span>
-      <span class="pill"><b>Rechts – Mindestanteil</b><input id="bFillR" type="number" value="0.015" step="0.005" style="width:110px;"></span>
+      <span class="pill"><b>Rechts – Empfindlichkeit</b><input id="bThrR" type="number" value="42" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Rechts – Mindestanteil</b><input id="bFillR" type="number" value="0.2" step="0.005" style="width:110px;"></span>
 
-      <span class="pill"><b>Unten – Empfindlichkeit</b><input id="bThrB" type="number" value="22" min="1" max="255" style="width:90px;"></span>
-      <span class="pill"><b>Unten – Mindestanteil</b><input id="bFillB" type="number" value="0.012" step="0.005" style="width:110px;"></span>
+      <span class="pill"><b>Unten – Empfindlichkeit</b><input id="bThrB" type="number" value="50" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Unten – Mindestanteil</b><input id="bFillB" type="number" value="0.152" step="0.005" style="width:110px;"></span>
 
-      <span class="pill"><b>Links – Empfindlichkeit</b><input id="bThrL" type="number" value="28" min="1" max="255" style="width:90px;"></span>
-      <span class="pill"><b>Links – Mindestanteil</b><input id="bFillL" type="number" value="0.015" step="0.005" style="width:110px;"></span>
+      <span class="pill"><b>Links – Empfindlichkeit</b><input id="bThrL" type="number" value="56" min="1" max="255" style="width:90px;"></span>
+      <span class="pill"><b>Links – Mindestanteil</b><input id="bFillL" type="number" value="0.2" step="0.005" style="width:110px;"></span>
     </div>
 
     <div class="hr"></div>
@@ -2370,6 +2370,17 @@ async function displaySinglePreview(idx){
       $("whiteBg").checked = isWhiteBgForIdx(idx);
     }catch(e){}
   }
+
+  // Synchronize the preview canvas backgrounds in single mode with the white background setting.
+  (function(){
+    const white = isWhiteBgForIdx(idx);
+    const bgColor = white ? "#ffffff" : "#000000";
+    const ids = ["knobFront","knobBack","knobPair"];
+    ids.forEach((cid)=>{
+      const el = $(cid);
+      if(el) el.style.backgroundColor = bgColor;
+    });
+  })();
   // load preview-sized front/back. Use the file objects stored in the cell and
   // scale down large images to reduce memory usage. Only the full
   // resolution will be loaded later during export.
@@ -3450,6 +3461,17 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
   // Preview-Optionen: global aus Settings, aber pro Bild overridbar
     const wOpt = $("whiteBg");
     if(wOpt) wOpt.checked = isWhiteBgForIdx(idx);
+
+    // Synchronize the preview canvas backgrounds with the white background setting.
+    (function(){
+      const white = isWhiteBgForIdx(idx);
+      const bgColor = white ? "#ffffff" : "#000000";
+      const ids = ["knobFront","knobBack","knobPair"];
+      ids.forEach((cid)=>{
+        const el = $(cid);
+        if(el) el.style.backgroundColor = bgColor;
+      });
+    })();
 
   const fExp = maybeWhiten(f, idx);
   const bExp = maybeWhiten(b, idx);
