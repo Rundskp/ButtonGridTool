@@ -2371,16 +2371,8 @@ async function displaySinglePreview(idx){
     }catch(e){}
   }
 
-  // Synchronize the preview canvas backgrounds in single mode with the white background setting.
-  (function(){
-    const white = isWhiteBgForIdx(idx);
-    const bgColor = white ? "#ffffff" : "#000000";
-    const ids = ["knobFront","knobBack","knobPair"];
-    ids.forEach((cid)=>{
-      const el = $(cid);
-      if(el) el.style.backgroundColor = bgColor;
-    });
-  })();
+  // Do not force a black/white preview canvas fill here. The background color will come from
+  // the whitened image itself; setting a flat canvas colour would overwrite the preview.
   // load preview-sized front/back. Use the file objects stored in the cell and
   // scale down large images to reduce memory usage. Only the full
   // resolution will be loaded later during export.
@@ -3155,10 +3147,14 @@ function whitenBackground(srcCanvas){
       }
     }
     ctx.putImageData(img,0,0);
+    // Preserve debug information on the whitened canvas so the overlay matches the auto‑crop.
+    if(srcCanvas && srcCanvas.__dbg) out.__dbg = srcCanvas.__dbg;
     return out;
   }
 
   // If no foreground detected, return the canvas unchanged.  This avoids whitening the object unintentionally.
+  // Preserve debug information on the whitened canvas so the overlay matches the auto‑crop.
+  if(srcCanvas && srcCanvas.__dbg) out.__dbg = srcCanvas.__dbg;
   return out;
 }
 
@@ -3462,16 +3458,8 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
     const wOpt = $("whiteBg");
     if(wOpt) wOpt.checked = isWhiteBgForIdx(idx);
 
-    // Synchronize the preview canvas backgrounds with the white background setting.
-    (function(){
-      const white = isWhiteBgForIdx(idx);
-      const bgColor = white ? "#ffffff" : "#000000";
-      const ids = ["knobFront","knobBack","knobPair"];
-      ids.forEach((cid)=>{
-        const el = $(cid);
-        if(el) el.style.backgroundColor = bgColor;
-      });
-    })();
+    // Do not force a black/white preview canvas fill here. The background colour will come from
+    // the whitened image itself; setting a flat canvas colour would overwrite the preview.
 
   const fExp = maybeWhiten(f, idx);
   const bExp = maybeWhiten(b, idx);
