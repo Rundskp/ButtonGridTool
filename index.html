@@ -3152,25 +3152,99 @@ function whitenBackground(srcCanvas){
     return out;
   }
 
-  // If no foreground was detected, fall back to a distance‑based whitening: pixels that are sufficiently
-  // similar to the approximate background colour will be set to pure white. This removes coloured
-  // backgrounds even when the object touches the edges and no bounding box is found.
-  const img = ctx.getImageData(0,0,out.width,out.height);
-  const d = img.data;
-  const bg = approxBgColor(out);
-  const thr = 42;
+  // If no foreground was detected, fall back to a flood‑fill based whitening: starting from the corners,
+  // any pixel whose colour is sufficiently close to the approximate background colour is set to pure white.
+  // This approach preserves the object while removing coloured or uneven backgrounds.
+  const img  = ctx.getImageData(0,0,out.width,out.height);
+  const d    = img.data;
+  const bg   = approxBgColor(out);
+  const thr  = 42;
   const thr2 = thr * thr;
-  for(let y=0; y<out.height; y++){
-    for(let x=0; x<out.width; x++){
-      const i = (y*out.width + x) * 4;
-      const dr = d[i]   - bg.r;
-      const dg = d[i+1] - bg.g;
-      const db = d[i+2] - bg.b;
-      const dist2 = dr*dr + dg*dg + db*db;
-      if(dist2 <= thr2){
-        d[i]   = 255;
-        d[i+1] = 255;
-        d[i+2] = 255;
+  const w = out.width, h = out.height;
+  // visited map: 0 = unvisited, 1 = processed
+  const visited = new Uint8Array(w * h);
+  // Use a simple stack for flood fill (depth‑first). Each element is a pair [x,y].
+  const stack = [];
+  // Seed with the four corners
+  const seed = (x,y) => {
+    const idx = y * w + x;
+    visited[idx] = 1;
+    stack.push([x,y]);
+  };
+  seed(0,0);
+  seed(w-1,0);
+  seed(0,h-1);
+  seed(w-1,h-1);
+  while(stack.length > 0){
+    const [x,y] = stack.pop();
+    // whiten this pixel
+    const di = (y * w + x) * 4;
+    d[di]   = 255;
+    d[di+1] = 255;
+    d[di+2] = 255;
+    // Check neighbors (4‑connectivity)
+    // left
+    if(x > 0){
+      const nx = x - 1, ny = y;
+      const nIdx = ny * w + nx;
+      if(!visited[nIdx]){
+        const ni = nIdx * 4;
+        const dr = d[ni]   - bg.r;
+        const dg = d[ni+1] - bg.g;
+        const db = d[ni+2] - bg.b;
+        const dist2 = dr*dr + dg*dg + db*db;
+        if(dist2 <= thr2){
+          visited[nIdx] = 1;
+          stack.push([nx,ny]);
+        }
+      }
+    }
+    // right
+    if(x < w-1){
+      const nx = x + 1, ny = y;
+      const nIdx = ny * w + nx;
+      if(!visited[nIdx]){
+        const ni = nIdx * 4;
+        const dr = d[ni]   - bg.r;
+        const dg = d[ni+1] - bg.g;
+        const db = d[ni+2] - bg.b;
+        const dist2 = dr*dr + dg*dg + db*db;
+        if(dist2 <= thr2){
+          visited[nIdx] = 1;
+          stack.push([nx,ny]);
+        }
+      }
+    }
+    // up
+    if(y > 0){
+      const nx = x, ny = y - 1;
+      const nIdx = ny * w + nx;
+      if(!visited[nIdx]){
+        const ni = nIdx * 4;
+        const dr = d[ni]   - bg.r;
+        const dg = d[ni+1] - bg.g;
+        const db = d[ni+2] - bg.b;
+        const dist2 = dr*dr + dg*dg + db*db;
+        if(dist2 <= thr2){
+          visited[nIdx] = 1;
+          stack.push([nx,ny]);
+        }
+      }
+    }
+    // down
+    if(y < h-1){
+      const nx = x, ny = y + 1;
+      const nIdx = ny * w + nx;
+      if(!visited[nIdx]){
+        const ni = nIdx * 4;
+        const dr = d[ni]   - bg.r;
+        const dg = d[ni+1] - bg.g;
+        const db = d[ni+2] - bg.b;
+        const dist2 = dr*dr + dg*dg + db*db;
+        if(dist2 <= thr2){
+          visited[nIdx] = 1;
+          stack.push([nx,ny]);
+        }
       }
     }
   }
