@@ -3152,7 +3152,29 @@ function whitenBackground(srcCanvas){
     return out;
   }
 
-  // If no foreground detected, return the canvas unchanged.  This avoids whitening the object unintentionally.
+  // If no foreground was detected, fall back to a distance‑based whitening: pixels that are sufficiently
+  // similar to the approximate background colour will be set to pure white. This removes coloured
+  // backgrounds even when the object touches the edges and no bounding box is found.
+  const img = ctx.getImageData(0,0,out.width,out.height);
+  const d = img.data;
+  const bg = approxBgColor(out);
+  const thr = 42;
+  const thr2 = thr * thr;
+  for(let y=0; y<out.height; y++){
+    for(let x=0; x<out.width; x++){
+      const i = (y*out.width + x) * 4;
+      const dr = d[i]   - bg.r;
+      const dg = d[i+1] - bg.g;
+      const db = d[i+2] - bg.b;
+      const dist2 = dr*dr + dg*dg + db*db;
+      if(dist2 <= thr2){
+        d[i]   = 255;
+        d[i+1] = 255;
+        d[i+2] = 255;
+      }
+    }
+  }
+  ctx.putImageData(img,0,0);
   // Preserve debug information on the whitened canvas so the overlay matches the auto‑crop.
   if(srcCanvas && srcCanvas.__dbg) out.__dbg = srcCanvas.__dbg;
   return out;
@@ -3876,7 +3898,15 @@ function canvasToBlobAsync(canvas, mime, quality){
   });
 }
 
-$("btnExport").addEventListener("click", async ()=>{
+$("btnExport").addEventListener("click", async (e)=>{
+  // Prevent default button behaviour (e.g. submitting a form) to avoid unintended page reloads.
+  if(e && typeof e.preventDefault === "function") e.preventDefault();
+  // Require a base filename. If none is provided, do not reset the page and instead inform the user.
+  const rawName = $("expBaseName")?.value || "";
+  if(!rawName.trim()){
+    alert("Bitte einen Dateinamen eingeben.");
+    return;
+  }
   // Use a try/catch around the export logic to prevent the page from crashing on errors.
   try{
     // If we are in single mode (cells contain singleFrontFile), export directly from selected images
