@@ -3118,77 +3118,54 @@ function cyclePairLayoutOverride(idx){
 }
 
 function whitenBackground(srcCanvas){
-  // Ziel: Hintergrund (nahe am Rand-Hintergrund) -> reines Weiß, Objekt bleibt.
+  // Ziel: Den Hintergrund (egal ob sich der Rand von der Farbe her leicht unterscheidet) zu reinweiß konvertieren, ohne das Objekt anzutasten.
+  // Vorgehen: Wir arbeiten immer auf einer Kopie des Bildes, füllen einen weißen Rand und flood‑fillen von allen Rändern aus in alle Bereiche,
+  // deren Farbe dem geschätzten Randhintergrund ähnlich ist. Das ist weniger anfällig für Objekte, die den Rand berühren, als die Bounding‑Box‑Methode.
   const out = document.createElement("canvas");
   out.width = srcCanvas.width;
   out.height = srcCanvas.height;
   const ctx = out.getContext("2d", { willReadFrequently:true });
   ctx.drawImage(srcCanvas, 0, 0);
-
-  // Try to detect the foreground object. If detected, whiten only outside the bounding box to ensure the object
-  // itself remains untouched. Otherwise fall back to distance-based background whitening.
-  const fg = detectForegroundBBox(out);
-  if(fg){
-    const img = ctx.getImageData(0,0,out.width,out.height);
-    const d = img.data;
-    // Compute bounding coordinates (inclusive)
-    const x0 = Math.max(0, Math.floor(fg.x));
-    const y0 = Math.max(0, Math.floor(fg.y));
-    const x1 = Math.min(out.width - 1,  Math.ceil(fg.x + fg.w - 1));
-    const y1 = Math.min(out.height - 1, Math.ceil(fg.y + fg.h - 1));
-    for(let y=0; y<out.height; y++){
-      for(let x=0; x<out.width; x++){
-        if(x < x0 || x > x1 || y < y0 || y > y1){
-          const idx = (y*out.width + x) * 4;
-          d[idx] = 255;
-          d[idx+1] = 255;
-          d[idx+2] = 255;
-        }
-      }
-    }
-    ctx.putImageData(img,0,0);
-    // Preserve debug information on the whitened canvas so the overlay matches the auto‑crop.
-    if(srcCanvas && srcCanvas.__dbg) out.__dbg = srcCanvas.__dbg;
-    return out;
-  }
-
-  // If no foreground was detected, fall back to a flood‑fill based whitening: starting from the corners,
-  // any pixel whose colour is sufficiently close to the approximate background colour is set to pure white.
-  // This approach preserves the object while removing coloured or uneven backgrounds.
-  const img  = ctx.getImageData(0,0,out.width,out.height);
-  const d    = img.data;
-  const bg   = approxBgColor(out);
-  const thr  = 42;
-  const thr2 = thr * thr;
   const w = out.width, h = out.height;
-  // visited map: 0 = unvisited, 1 = processed
+  const img = ctx.getImageData(0,0,w,h);
+  const d   = img.data;
+  const bg  = approxBgColor(out);
+  const thr = 42;
+  const thr2 = thr * thr;
   const visited = new Uint8Array(w * h);
-  // Use a simple stack for flood fill (depth‑first). Each element is a pair [x,y].
   const stack = [];
-  // Seed with the four corners
-  const seed = (x,y) => {
-    const idx = y * w + x;
+  // Seed edges: obere und untere Zeile
+  for(let x=0; x<w; x++){
+    let idx = x;
     visited[idx] = 1;
-    stack.push([x,y]);
-  };
-  seed(0,0);
-  seed(w-1,0);
-  seed(0,h-1);
-  seed(w-1,h-1);
+    stack.push([x,0]);
+    idx = (h-1)*w + x;
+    visited[idx] = 1;
+    stack.push([x,h-1]);
+  }
+  // Seed linke und rechte Spalte (ohne die Ecken, die bereits gesetzt wurden)
+  for(let y=1; y<h-1; y++){
+    let idx = y * w;
+    visited[idx] = 1;
+    stack.push([0,y]);
+    idx = y * w + (w-1);
+    visited[idx] = 1;
+    stack.push([w-1,y]);
+  }
   while(stack.length > 0){
     const [x,y] = stack.pop();
+    const di = (y*w + x) * 4;
     // whiten this pixel
-    const di = (y * w + x) * 4;
     d[di]   = 255;
     d[di+1] = 255;
     d[di+2] = 255;
-    // Check neighbors (4‑connectivity)
+    // Explore neighbours
     // left
     if(x > 0){
       const nx = x - 1, ny = y;
-      const nIdx = ny * w + nx;
+      const nIdx = ny*w + nx;
       if(!visited[nIdx]){
-        const ni = nIdx * 4;
+        const ni = (ny*w + nx) * 4;
         const dr = d[ni]   - bg.r;
         const dg = d[ni+1] - bg.g;
         const db = d[ni+2] - bg.b;
@@ -3202,9 +3179,9 @@ function whitenBackground(srcCanvas){
     // right
     if(x < w-1){
       const nx = x + 1, ny = y;
-      const nIdx = ny * w + nx;
+      const nIdx = ny*w + nx;
       if(!visited[nIdx]){
-        const ni = nIdx * 4;
+        const ni = (ny*w + nx) * 4;
         const dr = d[ni]   - bg.r;
         const dg = d[ni+1] - bg.g;
         const db = d[ni+2] - bg.b;
@@ -3218,9 +3195,9 @@ function whitenBackground(srcCanvas){
     // up
     if(y > 0){
       const nx = x, ny = y - 1;
-      const nIdx = ny * w + nx;
+      const nIdx = ny*w + nx;
       if(!visited[nIdx]){
-        const ni = nIdx * 4;
+        const ni = (ny*w + nx) * 4;
         const dr = d[ni]   - bg.r;
         const dg = d[ni+1] - bg.g;
         const db = d[ni+2] - bg.b;
@@ -3234,9 +3211,9 @@ function whitenBackground(srcCanvas){
     // down
     if(y < h-1){
       const nx = x, ny = y + 1;
-      const nIdx = ny * w + nx;
+      const nIdx = ny*w + nx;
       if(!visited[nIdx]){
-        const ni = nIdx * 4;
+        const ni = (ny*w + nx) * 4;
         const dr = d[ni]   - bg.r;
         const dg = d[ni+1] - bg.g;
         const db = d[ni+2] - bg.b;
@@ -3249,7 +3226,6 @@ function whitenBackground(srcCanvas){
     }
   }
   ctx.putImageData(img,0,0);
-  // Preserve debug information on the whitened canvas so the overlay matches the auto‑crop.
   if(srcCanvas && srcCanvas.__dbg) out.__dbg = srcCanvas.__dbg;
   return out;
 }
