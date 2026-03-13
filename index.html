@@ -2679,10 +2679,8 @@ function tightOrFull(cellCanvas, which){
   const padT = top;
   const padB = (sh-1-bottom);
 
-  const maxSym = Math.min(padL, padR, padT, padB);   // wieviel symmetrisch möglich wäre
-  const tiny = Math.round(2*scale);                  // kleiner Extra-Abstand
-  const symPad = clamp(tiny, 0, maxSym);             // NICHT maxSym nehmen!
-
+  const maxSym = Math.min(padL, padR, padT, padB);
+  const symPad = maxSym;
   let nL = left  - symPad;
   let nR = right + symPad;
   let nT = top   - symPad;
