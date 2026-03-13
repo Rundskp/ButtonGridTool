@@ -196,24 +196,27 @@ body.edgeAdjustMode .edgePanel .pill.activePill{
   pointer-events:auto;
 }
   /* Floating Slider */
+/* gesamtes Einstellungsfenster temporär ausblenden */
+body.sliderFocus .card.settingsCard{
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .15s;
+}
+
+/* Floating Slider */
 .sliderOverlay{
   position:fixed;
   left:50%;
-  bottom:25px;
+  bottom:24px;
   transform:translateX(-50%);
   z-index:9999;
 
   background:#ffffffee;
   backdrop-filter:blur(6px);
-
   border-radius:14px;
-  padding:12px 16px;
+  padding:10px 14px;
 
-  box-shadow:0 10px 40px rgba(0,0,0,0.25);
-}
-
-.edgePanel.hiddenPanel{
-  visibility:hidden;
+  box-shadow:0 10px 30px rgba(0,0,0,0.25);
 }
   </style>
 </head>
@@ -2670,24 +2673,21 @@ function val(id, def){
 function initEdgeSliderFocus(){
 
   let overlay=null;
-  let panel=null;
 
   document
   .querySelectorAll(".edgePanel input[type=range]")
   .forEach(slider=>{
 
     const pill=slider.closest(".pill");
-    panel=slider.closest(".edgePanel");
 
     const start=()=>{
 
-      panel.classList.add("hiddenPanel");
+      document.body.classList.add("sliderFocus");
 
       overlay=document.createElement("div");
       overlay.className="sliderOverlay";
 
       const clone=pill.cloneNode(true);
-
       const cloneSlider=clone.querySelector("input[type=range]");
       const cloneNum=clone.querySelector("input[type=number]");
 
@@ -2707,12 +2707,12 @@ function initEdgeSliderFocus(){
 
     const end=()=>{
 
-      if(!overlay) return;
+      document.body.classList.remove("sliderFocus");
 
-      panel.classList.remove("hiddenPanel");
-
-      overlay.remove();
-      overlay=null;
+      if(overlay){
+        overlay.remove();
+        overlay=null;
+      }
 
     };
 
@@ -2725,6 +2725,8 @@ function initEdgeSliderFocus(){
   });
 
 }
+
+initEdgeSliderFocus();
 function linkSliderNumber(id){
 
   const slider = document.getElementById(id);
