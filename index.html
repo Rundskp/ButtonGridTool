@@ -2520,10 +2520,25 @@ function buildCells(){
 }
 
 function cropCanvas(srcCanvas, cell){
-  const w=cell.x1-cell.x0, h=cell.y1-cell.y0;
-  const c=document.createElement("canvas");
-  c.width=w; c.height=h;
-  c.getContext("2d").drawImage(srcCanvas, cell.x0,cell.y0,w,h, 0,0,w,h);
+
+  const ref = S.work.front; // Grid basiert auf Front
+
+  const scaleX = srcCanvas.width / ref.width;
+  const scaleY = srcCanvas.height / ref.height;
+
+  const x = cell.x0 * scaleX;
+  const y = cell.y0 * scaleY;
+  const w = (cell.x1 - cell.x0) * scaleX;
+  const h = (cell.y1 - cell.y0) * scaleY;
+
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+
+  const ctx = c.getContext("2d");
+
+  ctx.drawImage(srcCanvas, x, y, w, h, 0, 0, w, h);
+
   return c;
 }
 
