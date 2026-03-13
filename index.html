@@ -199,7 +199,7 @@ body.edgeAdjustMode .edgePanel .pill.activePill{
 .sliderOverlay{
   position:fixed;
   left:50%;
-  bottom:30px;
+  bottom:25px;
   transform:translateX(-50%);
   z-index:9999;
 
@@ -212,12 +212,8 @@ body.edgeAdjustMode .edgePanel .pill.activePill{
   box-shadow:0 10px 40px rgba(0,0,0,0.25);
 }
 
-.sliderOverlay .pill{
-  margin:0;
-}
-
 .edgePanel.hiddenPanel{
-  display:none;
+  visibility:hidden;
 }
   </style>
 </head>
@@ -2674,26 +2670,37 @@ function val(id, def){
 function initEdgeSliderFocus(){
 
   let overlay=null;
-  let originalParent=null;
+  let panel=null;
 
   document
   .querySelectorAll(".edgePanel input[type=range]")
   .forEach(slider=>{
 
     const pill=slider.closest(".pill");
-    const panel=slider.closest(".edgePanel");
+    panel=slider.closest(".edgePanel");
 
     const start=()=>{
-
-      originalParent=pill.parentElement;
 
       panel.classList.add("hiddenPanel");
 
       overlay=document.createElement("div");
       overlay.className="sliderOverlay";
 
-      overlay.appendChild(pill);
+      const clone=pill.cloneNode(true);
 
+      const cloneSlider=clone.querySelector("input[type=range]");
+      const cloneNum=clone.querySelector("input[type=number]");
+
+      cloneSlider.value=slider.value;
+      cloneNum.value=slider.value;
+
+      cloneSlider.oninput=()=>{
+        slider.value=cloneSlider.value;
+        cloneNum.value=cloneSlider.value;
+        slider.dispatchEvent(new Event("input"));
+      };
+
+      overlay.appendChild(clone);
       document.body.appendChild(overlay);
 
     };
@@ -2701,8 +2708,6 @@ function initEdgeSliderFocus(){
     const end=()=>{
 
       if(!overlay) return;
-
-      originalParent.appendChild(pill);
 
       panel.classList.remove("hiddenPanel");
 
@@ -2716,7 +2721,6 @@ function initEdgeSliderFocus(){
 
     slider.addEventListener("touchend",end);
     slider.addEventListener("mouseup",end);
-    slider.addEventListener("change",end);
 
   });
 
