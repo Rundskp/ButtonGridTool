@@ -2681,11 +2681,10 @@ function tightOrFull(cellCanvas, which){
 
   const maxSym = Math.min(padL, padR, padT, padB);
   const symPad = maxSym;
-  let nL = left  - symPad;
-  let nR = right + symPad;
-  let nT = top   - symPad;
-  let nB = bottom+ symPad;
-
+  let nL = Math.max(cell.x, left  - symPad);
+  let nR = Math.min(cell.x + cell.w, right + symPad);
+  let nT = Math.max(cell.y, top   - symPad);
+  let nB = Math.min(cell.y + cell.h, bottom+ symPad);
   nL = clamp(nL, 0, sw-1);
   nR = clamp(nR, 0, sw-1);
   nT = clamp(nT, 0, sh-1);
