@@ -152,6 +152,15 @@
     .pairIcon.vertical {
       transform: rotate(90deg);
     }
+    .edgeHide > *{
+      opacity:0.15;
+      pointer-events:none;
+    }
+    
+    .edgeHide input[type=range].activeEdge{
+      opacity:1;
+      pointer-events:auto;
+}
   </style>
 </head>
 <body>
@@ -531,7 +540,7 @@
 
     <!-- FRONT -->
     <p class="small"><b>Vorderseite – Objektrand erkennen</b></p>
-    <div class="row">
+    <div class="row edgePanel">
       <span class="pill">
       <b>Oben – Sensibilität</b>
       <input id="fThrT" type="range" min="1" max="255" step="1" value="50" style="width:140px;">
@@ -577,8 +586,8 @@
     <div class="hr"></div>
 
     <!-- BACK -->
-    <p class="small"><b>Rückseite – Objektrand erkennen (Schatten!)</b></p>
-    <div class="row">
+    <p class="small"><b>Rückseite – Objektrand erkennen</b></p>
+    <div class="row edgePanel">
       <span class="pill">
       <b>Oben – Sensibilität</b>
       <input id="bThrT" type="range" min="1" max="255" step="1" value="50" style="width:140px;">
@@ -2604,6 +2613,34 @@ function val(id, def){
   const el = $(id);
   return el ? el.value : def;
 }
+function initEdgeSliderFocus(){
+
+  const sliders=document.querySelectorAll("input[type=range]");
+
+  sliders.forEach(s=>{
+
+    const panel=s.closest(".edgePanel");
+    if(!panel) return;
+
+    const start=()=>{
+      panel.classList.add("edgeHide");
+      s.classList.add("activeEdge");
+    };
+
+    const end=()=>{
+      panel.classList.remove("edgeHide");
+      s.classList.remove("activeEdge");
+    };
+
+    s.addEventListener("mousedown",start);
+    s.addEventListener("touchstart",start);
+
+    s.addEventListener("mouseup",end);
+    s.addEventListener("touchend",end);
+
+  });
+
+}
 function linkSliderNumber(id){
 
   const slider = document.getElementById(id);
@@ -4282,6 +4319,7 @@ setStatus("OpenCV.js lädt…");
 "fThrT","fThrR","fThrB","fThrL",
 "bThrT","bThrR","bThrB","bThrL"
 ].forEach(linkSliderNumber);
+initEdgeSliderFocus();
 </script>
 </body>
 </html>
