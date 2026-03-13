@@ -152,15 +152,13 @@
     .pairIcon.vertical {
       transform: rotate(90deg);
     }
-    .edgeHide > *{
-      opacity:0.15;
-      pointer-events:none;
+    .edgePanel.edgeHide .pill{
+      display:none;
     }
     
-    .edgeHide input[type=range].activeEdge{
-      opacity:1;
-      pointer-events:auto;
-}
+    .edgePanel.edgeHide .pill.activePill{
+      display:inline-flex;
+    }
   </style>
 </head>
 <body>
@@ -2620,16 +2618,18 @@ function initEdgeSliderFocus(){
   sliders.forEach(s=>{
 
     const panel=s.closest(".edgePanel");
-    if(!panel) return;
+    const pill=s.closest(".pill");
+
+    if(!panel || !pill) return;
 
     const start=()=>{
       panel.classList.add("edgeHide");
-      s.classList.add("activeEdge");
+      pill.classList.add("activePill");
     };
 
     const end=()=>{
       panel.classList.remove("edgeHide");
-      s.classList.remove("activeEdge");
+      pill.classList.remove("activePill");
     };
 
     s.addEventListener("mousedown",start);
@@ -4320,6 +4320,15 @@ setStatus("OpenCV.js lädt…");
 "bThrT","bThrR","bThrB","bThrL"
 ].forEach(linkSliderNumber);
 initEdgeSliderFocus();
+linkSliderNumber("edgeTopSens");
+linkSliderNumber("edgeRightSens");
+linkSliderNumber("edgeBottomSens");
+linkSliderNumber("edgeLeftSens");
+
+linkSliderNumber("edgeTopMin");
+linkSliderNumber("edgeRightMin");
+linkSliderNumber("edgeBottomMin");
+linkSliderNumber("edgeLeftMin");
 </script>
 </body>
 </html>
