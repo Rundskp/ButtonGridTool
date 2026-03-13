@@ -159,6 +159,25 @@
     .edgePanel.edgeHide .pill.activePill{
       display:inline-flex;
     }
+    body.edgeAdjustMode .card{
+  display:none;
+}
+
+body.edgeAdjustMode #previewCard{
+  display:block;
+}
+
+body.edgeAdjustMode .edgePanel{
+  display:block;
+}
+
+body.edgeAdjustMode .edgePanel .pill{
+  display:none;
+}
+
+body.edgeAdjustMode .edgePanel .pill.activePill{
+  display:inline-flex;
+}
   </style>
 </head>
 <body>
@@ -2613,23 +2632,30 @@ function val(id, def){
 }
 function initEdgeSliderFocus(){
 
-  const sliders=document.querySelectorAll("input[type=range]");
+  const sliders = document.querySelectorAll("input[type=range]");
 
   sliders.forEach(s=>{
 
-    const panel=s.closest(".edgePanel");
-    const pill=s.closest(".pill");
-
-    if(!panel || !pill) return;
+    const pill = s.closest(".pill");
 
     const start=()=>{
-      panel.classList.add("edgeHide");
-      pill.classList.add("activePill");
+
+      document.body.classList.add("edgeAdjustMode");
+
+      if(pill){
+        pill.classList.add("activePill");
+      }
+
     };
 
     const end=()=>{
-      panel.classList.remove("edgeHide");
-      pill.classList.remove("activePill");
+
+      document.body.classList.remove("edgeAdjustMode");
+
+      if(pill){
+        pill.classList.remove("activePill");
+      }
+
     };
 
     s.addEventListener("mousedown",start);
@@ -2648,19 +2674,21 @@ function linkSliderNumber(id){
 
   if(!slider || !num) return;
 
-  slider.addEventListener("input",()=>{
-
+  const syncFromSlider = ()=>{
     num.value = slider.value;
-    drawPreview(); // Debug Overlay aktualisieren
+    drawPreview();
+  };
 
-  });
-
-  num.addEventListener("input",()=>{
-
+  const syncFromNum = ()=>{
     slider.value = num.value;
     drawPreview();
+  };
 
-  });
+  slider.addEventListener("input",syncFromSlider);
+  slider.addEventListener("change",syncFromSlider);
+
+  num.addEventListener("input",syncFromNum);
+  num.addEventListener("change",syncFromNum);
 
 }
 /*
