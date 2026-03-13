@@ -3514,12 +3514,19 @@ setStatus(`Preview Front #${idx} ↔ Back #${backIdx}`);
   let f, b;
 
   const mf = S.manualCrop.front[idx];
-  const mb = S.manualCrop.back[backIdx];
+const mb = S.manualCrop.back[backIdx];
 
+if(mf){
+  f = cropRect01(f0, mf);
+} else {
+  f = f0;   // ganze Zelle
+}
 
-  if(mf){ f = cropRect01(f0, mf); } else { f = tightOrFull(f0, "front"); }
-  if(mb){ b = cropRect01(b0, mb); } else { b = tightOrFull(b0, "back"); }
-
+if(mb){
+  b = cropRect01(b0, mb);
+} else {
+  b = b0;   // ganze Zelle
+}
   if(!f || f.width < 10 || f.height < 10) f = f0;
   if(!b || b.width < 10 || b.height < 10) b = b0;
 
