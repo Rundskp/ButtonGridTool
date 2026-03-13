@@ -178,6 +178,47 @@ body.edgeAdjustMode .edgePanel .pill{
 body.edgeAdjustMode .edgePanel .pill.activePill{
   display:inline-flex;
 }
+.edgeFocus .edgeRow{
+  display:none;
+}
+
+.edgeFocus .edgeRow.activeEdge{
+  display:flex;
+}
+    /* Slider-Focus Modus */
+.edgePanel.focusMode .pill{
+  opacity:0.15;
+  pointer-events:none;
+}
+
+.edgePanel.focusMode .pill.active{
+  opacity:1;
+  pointer-events:auto;
+}
+  /* Floating Slider */
+.sliderOverlay{
+  position:fixed;
+  left:50%;
+  bottom:30px;
+  transform:translateX(-50%);
+  z-index:9999;
+
+  background:#ffffffee;
+  backdrop-filter:blur(6px);
+
+  border-radius:14px;
+  padding:12px 16px;
+
+  box-shadow:0 10px 40px rgba(0,0,0,0.25);
+}
+
+.sliderOverlay .pill{
+  margin:0;
+}
+
+.edgePanel.hiddenPanel{
+  display:none;
+}
   </style>
 </head>
 <body>
@@ -2632,37 +2673,50 @@ function val(id, def){
 }
 function initEdgeSliderFocus(){
 
-  const sliders = document.querySelectorAll("input[type=range]");
+  let overlay=null;
+  let originalParent=null;
 
-  sliders.forEach(s=>{
+  document
+  .querySelectorAll(".edgePanel input[type=range]")
+  .forEach(slider=>{
 
-    const pill = s.closest(".pill");
+    const pill=slider.closest(".pill");
+    const panel=slider.closest(".edgePanel");
 
     const start=()=>{
 
-      document.body.classList.add("edgeAdjustMode");
+      originalParent=pill.parentElement;
 
-      if(pill){
-        pill.classList.add("activePill");
-      }
+      panel.classList.add("hiddenPanel");
+
+      overlay=document.createElement("div");
+      overlay.className="sliderOverlay";
+
+      overlay.appendChild(pill);
+
+      document.body.appendChild(overlay);
 
     };
 
     const end=()=>{
 
-      document.body.classList.remove("edgeAdjustMode");
+      if(!overlay) return;
 
-      if(pill){
-        pill.classList.remove("activePill");
-      }
+      originalParent.appendChild(pill);
+
+      panel.classList.remove("hiddenPanel");
+
+      overlay.remove();
+      overlay=null;
 
     };
 
-    s.addEventListener("mousedown",start);
-    s.addEventListener("touchstart",start);
+    slider.addEventListener("touchstart",start);
+    slider.addEventListener("mousedown",start);
 
-    s.addEventListener("mouseup",end);
-    s.addEventListener("touchend",end);
+    slider.addEventListener("touchend",end);
+    slider.addEventListener("mouseup",end);
+    slider.addEventListener("change",end);
 
   });
 
@@ -4347,7 +4401,7 @@ setStatus("OpenCV.js lädt…");
 "fThrT","fThrR","fThrB","fThrL",
 "bThrT","bThrR","bThrB","bThrL"
 ].forEach(linkSliderNumber);
-initEdgeSliderFocus();
+
 linkSliderNumber("edgeTopSens");
 linkSliderNumber("edgeRightSens");
 linkSliderNumber("edgeBottomSens");
@@ -4357,6 +4411,7 @@ linkSliderNumber("edgeTopMin");
 linkSliderNumber("edgeRightMin");
 linkSliderNumber("edgeBottomMin");
 linkSliderNumber("edgeLeftMin");
+initEdgeSliderFocus();
 </script>
 </body>
 </html>
